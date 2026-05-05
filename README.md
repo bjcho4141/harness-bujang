@@ -22,10 +22,31 @@ npx harness-bujang@latest init
 
 → 한국어 부장 페르소나 + **공동대표 페르소나** + 카톡 스타일 톡방 + **16팀 멀티 에이전트** (코드 9팀 + 콘텐츠 7팀) + **외부팀원 톡방** 이 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
 
-```bash
-# 톡방 보기 (어떤 스택이든) — 브라우저 자동 오픈
-npx harness-bujang@latest chat --create
+### 💬 톡방 열기 — 두 가지 방법 (자연어 추천)
 
+설치 끝나면 Claude Code 에서 **자연어 한 마디** 만 하시면 부장이 알아서 톡방 viewer 띄움:
+
+```
+"부장님 톡방 열어주세요"     ← 자연어 (추천)
+"부장 톡방 오픈"
+"톡방 보여줘"
+```
+
+→ 부장이 자동으로 `npx harness-bujang chat` 백그라운드 실행 → **브라우저 자동 오픈** → http://localhost:7777 카톡 UI 톡방.
+
+닫고 싶을 때도 자연어:
+```
+"톡방 닫아줘"
+```
+
+수동으로 직접 띄우고 싶으면:
+```bash
+npx harness-bujang@latest chat
+```
+
+### 그 외 자주 쓰는 명령
+
+```bash
 # Cursor / Cline / Aider / Codex / Antigravity / Gemini 동시 호환
 npx harness-bujang@latest adapt --to=all
 

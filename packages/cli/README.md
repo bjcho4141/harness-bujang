@@ -36,21 +36,30 @@ npx harness-bujang update
 > you've added to existing agent files. `CLAUDE.md` and
 > `docs/AGENT_LEARNING_LOG.md` are never touched by any of the three commands.
 
-### See the chat-room — any stack
+### 💬 Open the chat-room — two ways (natural language recommended)
 
+After install, just **say it in plain language** inside Claude Code — the Director will spawn the viewer in the background:
+
+```
+"Director, open the chat room"
+"부장님 톡방 열어주세요"
+"open chat" / "show the chat"
+```
+
+→ The Director auto-runs `npx harness-bujang chat` (background) → browser opens → http://localhost:7777 KakaoTalk-style room.
+
+To close, also natural language:
+```
+"close the chat room"
+"톡방 닫아줘"
+```
+
+Manual command (works on any stack — Next.js, Rails, Django, Express, …):
 ```bash
-# Standalone viewer (works on Next.js, Rails, Django, Express, …) — no setup
 npx harness-bujang chat
-# → opens http://localhost:7777 in your browser
 ```
 
-The standalone viewer reads `.harness/chat.db` directly, so it works on any
-project that uses the SQLite chat backend (the default). For projects that have
-not posted any messages yet, pass `--create` to bootstrap an empty DB and seed:
-
-```bash
-npx harness-bujang chat --create
-```
+→ Reads `.harness/chat.db` directly. From 0.5.3, the DB is auto-created on first run if missing.
 
 ## What it does
 
