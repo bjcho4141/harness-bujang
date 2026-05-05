@@ -539,17 +539,18 @@ function render() {
     }
     html += '</div>';
 
-    // Input bar — for sending principal messages.
-    html += '<div class="px-4 py-3 bg-white border-t border-gray-200 flex gap-2">';
-    html += '<input id="msg-input" type="text" placeholder="메시지 입력 (Enter 전송)" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500" />';
-    html += '<button id="send-btn" class="px-4 py-2 text-sm font-semibold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600">전송</button>';
+    // Footer — read-only viewer reminder. The viewer is a monitor for agent
+    // activity; real commands go to Claude Code itself. (Auto-pickup of
+    // principal messages from this viewer is on the roadmap.)
+    html += '<div class="px-4 py-2 bg-white border-t border-gray-200 text-center">';
+    html += '<p class="text-xs text-gray-400">읽기 전용 뷰어 — 명령은 Claude Code 터미널에서 부장님께 직접 말씀하세요</p>';
     html += '</div>';
   }
   html += '</div>';
 
   root.innerHTML = html;
 
-  // Re-bind handlers
+  // Re-bind room-click handlers (room list).
   document.querySelectorAll('[data-room-id]').forEach((el) => {
     el.addEventListener('click', () => {
       state.selectedRoom = el.getAttribute('data-room-id');
@@ -561,43 +562,6 @@ function render() {
       if (conv) conv.scrollTop = conv.scrollHeight;
     });
   });
-
-  const input = document.getElementById('msg-input');
-  const sendBtn = document.getElementById('send-btn');
-  if (input && sendBtn) {
-    const send = async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      input.disabled = true;
-      sendBtn.disabled = true;
-      try {
-        const target = state.selectedRoom === '대표님' ? '부장' : (state.selectedRoom || '부장');
-        await fetch('/api/messages', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            from: '대표님',
-            to: target,
-            type: 'command',
-            message: text,
-            severity: 'info',
-          }),
-        });
-        input.value = '';
-        await refresh();
-        const conv = document.getElementById('conversation');
-        if (conv) conv.scrollTop = conv.scrollHeight;
-      } catch (e) {
-        alert('전송 실패: ' + e.message);
-      }
-      input.disabled = false;
-      sendBtn.disabled = false;
-      input.focus();
-    };
-    sendBtn.addEventListener('click', send);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
-    input.focus();
-  }
 
   // Auto-scroll the selected room to the bottom on first render of that room.
   const conv = document.getElementById('conversation');
