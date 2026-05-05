@@ -512,7 +512,7 @@ function render() {
   html += '</div>';
   html += '</div>';
 
-  html += '<div class="flex-1 overflow-y-auto">';
+  html += '<div id="room-list" class="flex-1 overflow-y-auto">';
   // When 'unread' filter is active, only show rooms with unread > 0.
   const visibleRooms = state.filter === 'unread'
     ? ROOMS.filter((r) => unreadByRoom[r.id] > 0)
@@ -599,7 +599,26 @@ function render() {
   }
   html += '</div>';
 
+  // Save scroll positions BEFORE replacing innerHTML — otherwise every 2s poll
+  // resets the sidebar room-list scroll to top, and the conversation re-snaps
+  // to the bottom even if the user was reading older messages.
+  const oldRoomList = document.getElementById('room-list');
+  const oldConv = document.getElementById('conversation');
+  const savedRoomScroll = oldRoomList ? oldRoomList.scrollTop : 0;
+  let savedConvScroll = null;
+  let convWasAtBottom = true;
+  if (oldConv) {
+    savedConvScroll = oldConv.scrollTop;
+    // "At bottom" within ~80px — if user was at bottom we keep them at bottom
+    // (so new messages stay visible). If they scrolled up, preserve position.
+    convWasAtBottom = (oldConv.scrollHeight - oldConv.scrollTop - oldConv.clientHeight) < 80;
+  }
+
   root.innerHTML = html;
+
+  // Restore scroll positions.
+  const newRoomList = document.getElementById('room-list');
+  if (newRoomList) newRoomList.scrollTop = savedRoomScroll;
 
   // Re-bind filter buttons (전체 / 안읽음).
   document.querySelectorAll('[data-filter]').forEach((el) => {
@@ -623,11 +642,20 @@ function render() {
     });
   });
 
-  // Auto-scroll the selected room to the bottom on first render of that room.
+  // Conversation scroll handling:
+  //  - First render of a room → scroll to bottom (latest msg visible)
+  //  - User was at bottom → keep at new bottom (so new msgs auto-show)
+  //  - User scrolled up to read history → preserve their position
   const conv = document.getElementById('conversation');
-  if (conv && conv.dataset.scrolled !== state.selectedRoom) {
-    conv.scrollTop = conv.scrollHeight;
-    conv.dataset.scrolled = state.selectedRoom;
+  if (conv) {
+    if (conv.dataset.scrolled !== state.selectedRoom) {
+      conv.scrollTop = conv.scrollHeight;
+      conv.dataset.scrolled = state.selectedRoom;
+    } else if (convWasAtBottom) {
+      conv.scrollTop = conv.scrollHeight;
+    } else if (savedConvScroll !== null) {
+      conv.scrollTop = savedConvScroll;
+    }
   }
 }
 
