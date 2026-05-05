@@ -33,6 +33,18 @@ npx harness-bujang@latest adapt --to=all
 npx harness-bujang@latest update
 ```
 
+> ## ⚠️ 처음 vs 업데이트 — 이거 꼭 알고 가세요
+>
+> | 상황 | 명령 | 무엇을 함 |
+> |------|------|----------|
+> | **처음 설치** (빈 프로젝트) | `npx harness-bujang init` | 부장 + 16팀 + 공동대표 전체 설치 |
+> | **새 버전 받기** (이미 쓰던 사람) | `npx harness-bujang update` | **신규 파일만 추가**. 기존 에이전트 절대 안 건드림 |
+> | **깨끗한 리셋** (커스텀 다 버리고 새로) | `npx harness-bujang init --yes` | **모든 에이전트 덮어쓰기** ⚠️ |
+>
+> **이미 쓰고 계셨다면 `update` 만 쓰세요.** `init --yes` 로 업그레이드하시면
+> 그동안 부장님이 에이전트에 추가하신 도메인 룰·학습된 커스텀이 **다 날아갑니다**.
+> `CLAUDE.md` / `docs/AGENT_LEARNING_LOG.md` 는 세 명령 모두 절대 안 건드립니다 (안전).
+
 > Claude Code · Cursor · Cline · Aider · OpenAI Codex CLI · GitHub Copilot Coding Agent · Sourcegraph Cody · Google Antigravity · Gemini CLI · Gemini Code Assist 모두 호환.
 >
 > 자세한 옵션은 ↓ [빠른 시작](#-빠른-시작) 참조.

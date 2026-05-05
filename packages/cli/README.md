@@ -18,7 +18,23 @@ npx harness-bujang init --lang=en
 
 # Different folder, skip the chat-room UI
 npx harness-bujang init --target=./my-app --no-template
+
+# Upgrade an existing install — adds NEW team files only, never touches existing ones
+npx harness-bujang update
 ```
+
+> ## ⚠️ First-time vs upgrade — read this before re-running
+>
+> | Situation | Command | What it does |
+> |-----------|---------|-------------|
+> | **First install** (empty project) | `npx harness-bujang init` | Full install — director + 16 teams + cofounder |
+> | **Pulling new version** (already installed) | `npx harness-bujang update` | **Adds only NEW files.** Existing agent files are never touched |
+> | **Clean reset** (drop customizations) | `npx harness-bujang init --yes` | **Overwrites every agent file** ⚠️ |
+>
+> **If you've already been using harness-bujang, use `update`.** Running
+> `init --yes` to upgrade will destroy any domain rules / learned customizations
+> you've added to existing agent files. `CLAUDE.md` and
+> `docs/AGENT_LEARNING_LOG.md` are never touched by any of the three commands.
 
 ### See the chat-room — any stack
 
@@ -71,6 +87,49 @@ npx harness-bujang status [path]
 ```
 
 Verifies the install: agent files, `CLAUDE.md` section, learning log, chat-room UI. Counts unfilled `{{...}}` placeholders.
+
+### `update`
+
+```
+npx harness-bujang update [options]
+
+Options:
+  --target=<path>          Project root (default: cwd)
+  --lang=<ko|en>           Language for newly-added agents (default: ko)
+```
+
+**Safe additive update.** Adds NEW agent files only. Existing files are NEVER touched.
+
+Use this when you upgrade `harness-bujang` and want to pull in newly-introduced
+team members (e.g. the cofounder persona in 0.5.1, or the content-production
+teams in 0.5.0) without disturbing any local customizations.
+
+```
+$ npx harness-bujang update
+
+🔄 Harness-Bujang update
+📂 Checking .claude/agents/
+   =  consultant.md (exists, kept as-is)
+   =  dev-team.md (exists, kept as-is)
+   +  cofounder.md
+   +  image-team.md
+   ...
+
+📋 Summary
+   Added:  4   (new files only)
+   Kept:   14  (existing files untouched)
+```
+
+> ⚠️ **`update` vs `init --yes`** — pick the right one:
+>
+> | Command | What happens |
+> |---------|-------------|
+> | `npx harness-bujang update` | **Safe.** Adds only new files. Custom edits preserved. |
+> | `npx harness-bujang init --yes` | **Destructive.** Overwrites every agent file. Customizations lost. |
+>
+> Default to `update` for upgrades. Use `init --yes` only for a clean reset.
+
+`CLAUDE.md` and `docs/AGENT_LEARNING_LOG.md` are **never** touched by either command.
 
 ### `chat`
 
