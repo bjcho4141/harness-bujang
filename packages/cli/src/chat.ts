@@ -351,7 +351,9 @@ ${CLIENT_JS}
 const CLIENT_JS = /* js */ `
 const ROLES = {
   '대표님':            { icon: '👔', color: 'text-purple-700', bg: 'bg-purple-100', label: '대표님' },
+  '공동대표':          { icon: '⭐', color: 'text-violet-700', bg: 'bg-violet-100', label: '공동대표' },
   '부장':              { icon: '🧑‍💼', color: 'text-blue-700',   bg: 'bg-blue-100',   label: '부장' },
+  '외부팀원':          { icon: '🌐', color: 'text-gray-700',   bg: 'bg-gray-100',   label: '외부팀원' },
   // Engineering core teams
   'consultant':        { icon: '🤝', color: 'text-indigo-700', bg: 'bg-indigo-100', label: '컨설턴트' },
   'dev-team':          { icon: '💻', color: 'text-violet-700', bg: 'bg-violet-100', label: '개발팀' },
@@ -374,7 +376,8 @@ const ROLES = {
 
 const ROOMS = [
   // Top-level
-  { id: '대표님',           name: '대표 보고',     icon: '👔', members: ['대표님', 'consultant', '부장'] },
+  { id: '대표님',           name: '대표 보고',     icon: '👔', members: ['대표님', '공동대표', 'consultant', '부장'] },
+  { id: '공동대표',         name: '공동대표',      icon: '⭐', members: ['대표님', '공동대표', '부장'] },
   { id: 'consultant',       name: '컨설턴트',      icon: '🤝', members: ['consultant', '부장'] },
   // Engineering teams
   { id: 'architect-team',   name: '아키텍처팀',    icon: '🏗️', members: ['부장', 'architect-team'] },
@@ -393,6 +396,8 @@ const ROOMS = [
   { id: 'voice-team',       name: '음성팀',        icon: '🎙️', members: ['부장', 'voice-team'] },
   { id: 'edit-team',         name: '편집팀',       icon: '🎬', members: ['부장', 'edit-team'] },
   { id: 'content-qa-team',  name: '콘텐츠검수팀',  icon: '🔎', members: ['부장', 'content-qa-team'] },
+  // External (0.5.1) — catches any from/to == '외부팀원' (Director's external dispatch logging)
+  { id: '외부팀원',         name: '외부팀원',      icon: '🌐', members: ['부장', '외부팀원', '공동대표'] },
 ];
 
 const STORAGE_KEY = 'harness-bujang-read';

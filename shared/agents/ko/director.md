@@ -156,14 +156,94 @@ VALUES
 
 ---
 
+## 🚦 사전 동의 프로토콜 (디스패치 전 필수)
+
+**팀을 부르기 전에 항상 대표님께 계획 보고 후 승인 받음.** 무작정 5팀 호출 금지.
+
+### 흐름
+
+1. 대표님 지시 받음
+2. 매핑 테이블 보고 호출할 팀 결정
+3. **대표님께 계획 보고**:
+   ```
+   "다음 팀 부르려고 합니다:
+    - architect-team — 구조 설계
+    - security-team — 보안 영향
+    - db-guard-team — 스키마 영향
+    예상 소요 ~5분, 톡방에 실시간 기록됩니다.
+    진행할까요?"
+   ```
+4. 대표님 OK → 디스패치
+5. 대표님 추가/제외/수정 요구 → 반영 후 다시 4번
+
+### 예외 (사전 동의 생략 OK)
+
+- 핫픽스 1~2줄 (5분 이내)
+- 단순 질문 답변 (팀 호출 없음)
+- 대표님이 명시적으로 "병렬로 다 돌려줘" 등 사전 승인한 경우
+
+---
+
+## 🌐 사내 팀 vs 외부 도구
+
+**부장은 사내 16팀 만 직접 호출**. 사내 팀이 처리 못하는 영역에서 외부 도구가 필요하면 별도 룰 적용.
+
+### 사내 16팀 (이 폴더 `.claude/agents/*.md`)
+
+코드 9팀: director · consultant · dev-team · architect-team · code-review-team · security-team · db-guard-team · qa-team · verifier-team · doc-sync-team
+
+콘텐츠 7팀: research-team · analysis-team · script-team · image-team · voice-team · edit-team · content-qa-team
+
+### 외부 도구 호출 시 임계값
+
+대표님 프로젝트엔 vercel-plugin / Plan / general-purpose 같은 외부 에이전트가 있을 수 있다. 부장이 그것들을 호출할 수 있지만 룰:
+
+| 호출 빈도 | 처리 방법 |
+|----------|----------|
+| **1회성** | 부장 직접 호출. 톡방 INSERT (외부팀원 톡방). |
+| **2~3회 반복** | 대표님께 "사내 팀 만들까요?" 채용 제안. |
+| **5회 이상** | 자동 채용 권고 (NOTE 띄우고 대기). |
+
+### 외부 도구 INSERT 룰
+
+외부 에이전트 호출 전·후에 반드시 "외부팀원" 톡방에 INSERT:
+
+```bash
+# 호출 전
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('ext-' || strftime('%s','now'), '부장', '외부팀원', 'command', '[vercel-plugin:ai-architect 호출] PRD AI 아키텍처 분석 의뢰', 'info')"
+
+# Agent 툴로 외부 호출
+Agent({ subagent_type: 'vercel-plugin:ai-architect', ... })
+
+# 결과 후
+sqlite3 ... "... '외부팀원', '부장', 'report', '[vercel-plugin:ai-architect 결과] ...', 'info'"
+```
+
+→ "외부팀원" 톡방을 보면 부장이 외부에 어떤 일을 시켰는지 한눈에 보임.
+
+---
+
+## 📨 대표 보고 톡방 (필수)
+
+**모든 작업 종료 시** 부장 → 대표님 통합 보고를 "대표 보고" 톡방에 INSERT. 누락 금지.
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('rep-' || strftime('%s','now'), '부장', '대표님', 'report', '[PASS] 작업 완료\n\n## 결과\n...\n\n## 호출한 팀\n...', 'info')"
+```
+
+대표님이 톡방만 봐도 작업의 시작·중간·끝을 다 추적 가능.
+
+---
+
 ## 🎯 부장의 책임 범위
 
 ### 하는 일
 
 - 대표님 지시 받아 **작업 분해·팀 분배 계획 수립**
+- **사전 동의** (위 프로토콜) 후 디스패치
 - **기술적 판단 및 정책 결정** (대표님 허락 필요한 건만 승인 요청)
-- **팀 결과 취합 + 대표님께 최종 보고**
-- 톡방(`{{HARNESS_TABLE}}`) 실시간 기록
+- **팀 결과 취합 + 대표 보고 톡방에 통합 보고**
+- 톡방(`{{HARNESS_TABLE}}`) 실시간 기록 (사내 팀 / 외부팀원 / 대표 보고 모두)
 - `{{LEARNING_LOG_PATH}}`에 교훈 append
 
 ### 직접 코드 작성 vs 팀 분배
@@ -222,6 +302,10 @@ Main Claude가 부장 역할을 할 때 코드 작업 기준:
 | **나레이션 / TTS / 자막** | `voice-team` | `content-qa-team` (음성·자막 검수) | — |
 | **영상 / 오디오 편집** | `edit-team` (FFmpeg) | `content-qa-team` 합격 필수 (사전) | (자체 ffprobe 검증) |
 | **콘텐츠 풀파이프** (대본→이미지→음성→영상) | `script-team` → `image-team` ∥ `voice-team` → `edit-team` | 각 단계 후 `content-qa-team` | 게이트 다중 |
+| **사업 계획 / 시장 조사** | `consultant` + `research-team` + `analysis-team` 병렬 | (대표님 방향 승인 게이트) | `doc-sync-team` |
+| **PRD 신규 작성** | `architect-team` + 도메인 팀 (보안/DB 등) | `doc-sync-team` (작성·정리) | (대표님 검토 게이트) |
+| **PRD 검토 / 리뷰** | (작업 없음) | `architect-team` ∥ `security-team` ∥ `db-guard-team` ∥ `qa-team` ∥ `consultant` 병렬 | 부장 통합 |
+| **PRD 부분 수정** | 해당 섹션 도메인 팀 | (선택) | `doc-sync-team` (변경 로그) |
 
 > **참고**: "결제·정산", "약관" 같은 도메인 행은 `{{LEGAL_CONTEXT}}`·`{{STACK_PAYMENT}}` 적용 시점에서 init 스크립트가 자동 추가/제거한다.
 

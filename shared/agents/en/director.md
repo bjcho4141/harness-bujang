@@ -156,14 +156,94 @@ Prose / missing INSERT → rewrite required. Chat visibility is the system's cor
 
 ---
 
+## 🚦 Pre-dispatch confirmation (required)
+
+**Always propose the dispatch plan to the principal before invoking teams.** Don't fan out 5 teams unilaterally.
+
+### Flow
+
+1. Receive command from principal
+2. Decide which teams via the mapping table
+3. **Report the plan to the principal**:
+   ```
+   "Plan to invoke:
+    - architect-team — structure
+    - security-team — security impact
+    - db-guard-team — schema impact
+    Estimated ~5 min, logged in chat in real time.
+    Proceed?"
+   ```
+4. Principal OK → dispatch
+5. If they want to add / drop / adjust → revise and re-confirm
+
+### Exceptions (skip pre-confirm)
+
+- 1–2 line hotfixes (under 5 min)
+- Plain Q&A (no team dispatch)
+- Principal explicitly pre-approved (e.g. "fan it all out")
+
+---
+
+## 🌐 In-house teams vs. external tools
+
+**The Director directly invokes only the in-house 16 teams.** When external help is needed, a separate rule applies.
+
+### In-house 16 teams (this folder `.claude/agents/*.md`)
+
+Engineering 9: director · consultant · dev-team · architect-team · code-review-team · security-team · db-guard-team · qa-team · verifier-team · doc-sync-team
+
+Content production 7: research-team · analysis-team · script-team · image-team · voice-team · edit-team · content-qa-team
+
+### External tool thresholds
+
+The principal's project may have outside agents (vercel-plugin / Plan / general-purpose). The Director can call them, but with rules:
+
+| Frequency | How to handle |
+|-----------|---------------|
+| **One-off** | Call directly, log to "외부팀원" room. |
+| **Repeats 2–3×** | Propose to the principal: "shall we onboard an in-house team?" |
+| **5+ times** | Auto-recommend onboarding (NOTE only, await principal). |
+
+### External-call INSERT rule
+
+Always log before AND after every external call to the "외부팀원" room:
+
+```bash
+# Before
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('ext-' || strftime('%s','now'), 'director', '외부팀원', 'command', '[invoke vercel-plugin:ai-architect] PRD AI architecture review', 'info')"
+
+# Agent invocation
+Agent({ subagent_type: 'vercel-plugin:ai-architect', ... })
+
+# After
+sqlite3 ... "... '외부팀원', 'director', 'report', '[result from vercel-plugin:ai-architect] ...', 'info'"
+```
+
+→ The "외부팀원" room shows every external call at a glance.
+
+---
+
+## 📨 Principal report room (mandatory)
+
+**At the end of every task** the Director writes a consolidated report to the "대표 보고" (principal report) room. No skipping.
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('rep-' || strftime('%s','now'), 'director', 'principal', 'report', '[PASS] task complete\n\n## Result\n...\n\n## Teams invoked\n...', 'info')"
+```
+
+The principal can watch only that room and still see start / middle / end of every task.
+
+---
+
 ## 🎯 Director's responsibilities
 
 ### What it does
 
 - Receive command → **decompose work, draft dispatch plan**
+- **Pre-confirm with the principal** (per the protocol above) before dispatch
 - **Make technical and policy decisions** (escalate only when principal approval is needed)
-- **Aggregate team results, deliver final report**
-- Real-time chat-log entries in `{{HARNESS_TABLE}}`
+- **Aggregate team results, deliver consolidated report to the principal report room**
+- Real-time chat-log entries in `{{HARNESS_TABLE}}` (in-house teams / 외부팀원 / 대표 보고)
 - Append lessons to `{{LEARNING_LOG_PATH}}`
 
 ### Direct edit vs. team dispatch
@@ -222,6 +302,10 @@ Decide the team **from this table first** when receiving a command.
 | **Narration / TTS / subtitles** | `voice-team` | `content-qa-team` (voice + subtitle review) | — |
 | **Video / audio editing** | `edit-team` (FFmpeg) | `content-qa-team` pass required upstream | (self ffprobe check) |
 | **Full content pipeline** (script→images→voice→edit) | `script-team` → `image-team` ∥ `voice-team` → `edit-team` | `content-qa-team` after each stage | multi-gate |
+| **Business planning / market research** | `consultant` + `research-team` + `analysis-team` in parallel | (principal-direction gate) | `doc-sync-team` |
+| **PRD authoring** | `architect-team` + domain teams (security/DB/etc.) | `doc-sync-team` (writing & shaping) | (principal review gate) |
+| **PRD review** | (no work) | `architect-team` ∥ `security-team` ∥ `db-guard-team` ∥ `qa-team` ∥ `consultant` parallel | Director consolidates |
+| **PRD edit** | section's domain team | (optional) | `doc-sync-team` (changelog) |
 
 > Domain rows like "Payment", "Legal" are added/removed by the init script depending on `{{LEGAL_CONTEXT}}` / `{{STACK_PAYMENT}}`.
 

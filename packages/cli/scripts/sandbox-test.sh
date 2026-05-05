@@ -69,6 +69,8 @@ assert_file "$SANDBOX/.claude/agents/image-team.md"
 assert_file "$SANDBOX/.claude/agents/voice-team.md"
 assert_file "$SANDBOX/.claude/agents/edit-team.md"
 assert_file "$SANDBOX/.claude/agents/content-qa-team.md"
+# Cofounder peer persona (added 0.5.1)
+assert_file "$SANDBOX/.claude/agents/cofounder.md"
 assert_file "$SANDBOX/CLAUDE.md"
 assert_file "$SANDBOX/docs/AGENT_LEARNING_LOG.md"
 
