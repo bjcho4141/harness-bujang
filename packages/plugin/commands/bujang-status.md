@@ -7,68 +7,53 @@ description: Show the current Harness-Bujang installation status — agents, CLA
 
 Print a structured status report of the harness install in the current project.
 
-## Sections to verify
+## Action — run the CLI status check
 
-### 1. Agent files
+The `harness-bujang` CLI on npm runs all the install verification (agents, CLAUDE.md section, placeholder check, learning log, chat-room UI). Run:
 
-- List `.claude/agents/*.md` and report which ones match the canonical set:
-  - `director.md`, `consultant.md`
-  - `dev-team.md`, `architect-team.md`, `doc-sync-team.md`
-  - `code-review-team.md`, `security-team.md`, `db-guard-team.md`, `qa-team.md`, `verifier-team.md`
-- For each found file, check whether placeholders (`{{...}}`) remain unfilled — that means init was incomplete
+```bash
+npx harness-bujang@latest status .
+```
 
-### 2. CLAUDE.md
-
-- Check root `CLAUDE.md` exists
-- Check it contains a `## 하네스 엔지니어링` or `## Harness Engineering` section
-- Check no `{{...}}` placeholders remain inside that section
-
-### 3. Learning log
-
-- Find the path declared by the agent files (look for the value used to replace `{{LEARNING_LOG_PATH}}`)
-- Check it exists and has at least the seed entry
-
-### 4. Chat-room infrastructure (if installed)
-
-- Check whether the project has:
-  - Migrations: `harness_messages` table created (look for SQL files or run a query if the user has DB credentials)
-  - UI: `app/admin/harness/page.tsx`, `app/admin/harness/harness-client.tsx`
-  - API: `app/api/harness/logs/route.ts`, `app/api/harness/reply/route.ts`
-- Check env vars: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPER_ADMIN_EMAILS`
-
-### 5. Recent chat activity
-
-If the chat room is accessible, query the most recent 10 entries from `harness_messages` and print a short list (timestamp + from → to + first 60 chars of message).
-
-## Output format
+This prints a summary like:
 
 ```
-📋 Harness-Bujang status — <project name>
+📋 Harness-Bujang status — <project>
 
-Agents (10/10):
-  ✅ director.md (15.0 KB)
-  ✅ dev-team.md (5.2 KB)
-  ... (etc.)
-  ⚠️ consultant.md — 2 unfilled placeholders
-
-CLAUDE.md:
-  ✅ Section "## 하네스 엔지니어링" found
-  ✅ No unfilled placeholders
-
-Learning log:
-  ✅ docs/AGENT_LEARNING_LOG.md (1 entry)
-
-Chat-room UI:
-  ✅ Migrations applied
-  ✅ UI files present
-  ⚠️ SUPER_ADMIN_EMAILS env var not set
-
-Recent chat (last 5):
-  10:32  director → dev-team   "[NOTE] Implement /api/health endpoint..."
-  10:35  dev-team → director   "[PASS] Done. 1 file changed..."
-  ...
+Agents
+   ✓  director.md
+   ...
+CLAUDE.md
+   ✓  Section present, no unfilled placeholders
+Learning log
+   ✓  docs/AGENT_LEARNING_LOG.md
+Chat-room UI (optional)
+   ✓  installed   (or  -  not installed)
 
 Overall: 🟢 healthy / 🟡 partial / 🔴 not installed
 ```
 
-If any item is `⚠️` or `🔴`, print a single-line suggestion for the fix (e.g., "Run /bujang-init to complete setup").
+## Recent chat activity (extra)
+
+The CLI does NOT query the chat database. To read recent `harness_messages` entries, do one of these depending on the backend:
+
+### SQLite
+
+```bash
+sqlite3 .harness/chat.db \
+  "SELECT created_at, from_role, to_role, substr(body, 1, 60) FROM harness_messages ORDER BY id DESC LIMIT 10"
+```
+
+### Supabase
+
+Hit the project's own `/api/harness/logs?limit=10` route (requires admin login) or use `psql` against the Postgres URL.
+
+After collecting the data, format it into a `Recent chat (last N):` block and append it under the CLI's output.
+
+## When status reports issues
+
+- If agents are missing → suggest `/bujang-init` (or `npx harness-bujang@latest init --yes` to overwrite)
+- If CLAUDE.md section missing → same
+- If chat-room UI not installed but the project is Next.js → suggest re-running init or copying `packages/template/app/admin/harness/` manually
+
+Print a single-line fix suggestion for each red/yellow item — never leave the user guessing what to do next.

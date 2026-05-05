@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { select, confirm } from '@inquirer/prompts';
 import { scanProject } from './scan.js';
 import { renderTemplate } from './template.js';
 
@@ -86,14 +87,12 @@ interface InitOptions {
 }
 
 export async function runInit(args: string[]): Promise<void> {
-  const opts = parseArgs(args);
+  let opts = parseArgs(args);
   const assets = await resolveAssetPaths();
 
   console.log();
   console.log(c.bold('📦 Harness-Bujang init'));
   console.log(c.dim(`   Target:        ${opts.target}`));
-  console.log(c.dim(`   Language:      ${opts.lang}`));
-  console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? c.dim(' (default — local file)') : c.dim(' (cloud Postgres)')}`));
   console.log(c.dim(`   Assets:        ${assets.mode}`));
   console.log();
 
@@ -111,6 +110,45 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(`   Payment:   ${scan.payment}`);
   console.log(`   GitHub:    ${scan.ghUser}`);
   console.log();
+
+  // 1b. Interactive prompts — only when stdin is a TTY and --yes was not passed.
+  const interactive = !opts.yes && Boolean(process.stdin.isTTY);
+  if (interactive) {
+    try {
+      opts = await promptInteractive(opts, scan);
+    } catch (err) {
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'ExitPromptError') {
+        console.log(c.dim('   (aborted)'));
+        return;
+      }
+      throw err;
+    }
+  }
+
+  console.log(c.bold('📋 Configuration'));
+  console.log(c.dim(`   Language:      ${opts.lang}`));
+  console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? ' (local file)' : ' (cloud Postgres)'}`));
+  if (scan.framework.startsWith('Next.js')) {
+    console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
+  }
+  console.log();
+
+  if (interactive) {
+    try {
+      const proceed = await confirm({ message: 'Proceed with these settings?', default: true });
+      if (!proceed) {
+        console.log(c.dim('   (aborted)'));
+        return;
+      }
+      console.log();
+    } catch (err) {
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'ExitPromptError') {
+        console.log(c.dim('   (aborted)'));
+        return;
+      }
+      throw err;
+    }
+  }
 
   // 2. Build template context
   const context: Record<string, string> = {
@@ -291,6 +329,39 @@ export async function runInit(args: string[]): Promise<void> {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
+
+async function promptInteractive(
+  opts: InitOptions,
+  scan: import('./scan.js').ScanResult,
+): Promise<InitOptions> {
+  const lang = (await select({
+    message: 'Agent language',
+    choices: [
+      { name: 'English', value: 'en' },
+      { name: 'Korean — full 부장 persona (한국어)', value: 'ko' },
+    ],
+    default: opts.lang,
+  })) as 'en' | 'ko';
+
+  const chatBackend = (await select({
+    message: 'Chat backend',
+    choices: [
+      { name: 'SQLite — local file, zero setup (recommended)', value: 'sqlite' },
+      { name: 'Supabase — cloud Postgres for team sharing', value: 'supabase' },
+    ],
+    default: opts.chatBackend,
+  })) as ChatBackend;
+
+  let installTemplate = opts.installTemplate;
+  if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
+    installTemplate = await confirm({
+      message: 'Install chat-room UI (Next.js admin route at /admin/harness)?',
+      default: true,
+    });
+  }
+
+  return { ...opts, lang, chatBackend, installTemplate };
+}
 
 function parseArgs(args: string[]): InitOptions {
   const lang = (getFlag(args, '--lang') ?? 'en') as 'ko' | 'en';

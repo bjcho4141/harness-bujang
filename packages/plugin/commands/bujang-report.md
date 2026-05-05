@@ -5,61 +5,86 @@ description: Summarize recent chat-room activity — what each team worked on, s
 
 # /bujang-report
 
-Read the most recent N entries from `harness_messages` (default: last 24 hours, or `--days=N`) and produce a structured summary for the principal.
+Read recent entries from `harness_messages` and produce a structured summary for the principal.
 
-## Steps
+## Action — execute now
 
-### 1. Pull the data
+Parse `--days=N` (default 1) and `--detailed` from the user's command arguments.
 
-Query the chat room (via the project's DB client or by hitting `/api/harness/logs?days=N` if the user has the route installed). Collect:
+### Step 1. Pull the data
 
-- Total message count
-- Per-role breakdown (`director`: X, `dev-team`: Y, etc.)
-- Severity counts (`info` / `warning` / `error`)
-- Type counts (`command` / `report` / `info` / `feedback`)
+Detect the backend by checking the project for a chat DB configuration:
 
-### 2. Group into work items
+- **SQLite** — if `.harness/chat.db` exists at the project root:
+
+  ```bash
+  sqlite3 .harness/chat.db <<SQL
+  SELECT id, created_at, from_role, to_role, type, severity, body
+  FROM harness_messages
+  WHERE created_at >= datetime('now', '-${N} day')
+  ORDER BY id ASC;
+  SQL
+  ```
+
+- **Supabase** — if `lib/harness-db/supabase.ts` is wired and the project has Supabase env vars: hit `/api/harness/logs?days=${N}` (the route returns the same shape) or query `harness_messages` directly via the service-role client.
+
+If no chat DB is configured (agents-only install), output: "No chat room is configured for this project — `/bujang-report` requires the chat-room UI install. Re-run `/bujang-init` and pick `Install chat-room UI = yes`."
+
+### Step 2. Aggregate
+
+Compute:
+
+- **Total messages** in window
+- **Type breakdown** — `command` / `report` / `info` / `feedback`
+- **Severity breakdown** — `info` / `warning` / `error`
+- **Per-role count** — director, dev-team, code-review-team, etc.
+
+### Step 3. Group into work items
 
 A "work item" is a chain of messages bounded by:
-- Start: principal → director (command)
-- End: director → principal (report) — or last message if still in progress
+
+- **Start** — principal → director (command), or director → team (command) if no principal command was logged
+- **End** — director → principal (report) at `severity=info` (clean), OR last message if still open
 
 For each work item:
-- One-line subject (first command's first line)
-- Teams involved (`dev-team`, `code-review-team`, etc.)
-- Final status (✅ done / ⏳ in progress / 🔴 blocked)
-- Total turn-around time (start → end timestamps)
+- One-line subject (first command's first line, max 60 chars)
+- Teams involved (distinct `from_role` values excluding `director` and `principal`)
+- Final status: ✅ done (last msg is director → principal, severity=info), ⏳ in progress (no terminating director report), 🔴 blocked (latest message has severity=error or warning unresolved)
+- Turnaround: first-message timestamp → last-message timestamp, formatted as `Xm` or `Xh Ym`
 
-### 3. Open blockers
+### Step 4. Open blockers
 
-List any messages with `severity='error'` or `severity='warning'` that aren't followed by a resolution.
+List messages with `severity IN ('error', 'warning')` that have no later message from the same `to_role` resolving them. Include the `body` (first 80 chars) and the source role.
 
-### 4. Output
+### Step 5. Output format
 
 ```
-📊 Harness report — last 24 hours
+📊 Harness report — last <N> day(s)
 
-Activity:
+Activity
   Total messages: 47
-  Commands: 8 · Reports: 35 · Info: 4
-  ✅ Info-level: 38 · ⚠️ Warnings: 6 · 🔴 Errors: 3
+  Types: 8 commands · 35 reports · 4 info
+  Severity: 38 info · 6 warning · 3 error
 
-Work items (3):
-  ✅ Implement /api/health endpoint — 32 min · dev-team, code-review-team, verifier-team
+Work items (3)
+  ✅ Implement /api/health endpoint — 32m · dev-team, code-review-team, verifier-team
   ⏳ Migrate auth flow to OAuth — in progress · architect-team
-  🔴 Production incident: payment timeout — 14 min in, blocked on Inicis API key
+  🔴 Production incident: payment timeout — 14m, blocked on Inicis API key
 
-Open blockers (1):
+Open blockers (1)
   🔴 [security-team] Hardcoded API key in src/lib/payment.ts:42 — not yet patched
 
-Top contributors:
-  dev-team        14 messages
-  director         9 messages
-  code-review-team 8 messages
-  ...
+Top contributors
+  dev-team        14
+  director         9
+  code-review-team 8
 ```
+
+If chat is empty in the window: "No activity in the last <N> day(s)."
+
+If `--detailed`, also dump the per-message timeline (timestamp + from → to + first 100 chars of body) under each work item.
 
 ## Notes
 
-- Keep it under ~500 chars unless `--detailed` is passed.
-- If chat is empty: "No activity in the last <window>."
+- Keep the summary under ~500 chars unless `--detailed` is passed.
+- Don't fabricate work items — if the chat DB returns 0 rows, say so explicitly.

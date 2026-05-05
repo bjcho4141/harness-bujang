@@ -32,7 +32,9 @@ ${c.bold('Options for init:')}
   --no-template            Skip chat-room UI install
   --no-claude-md           Skip CLAUDE.md edit
   --no-learning-log        Skip learning log seed
-  --yes, -y                Overwrite without asking
+  --yes, -y                Skip prompts and overwrite (non-interactive — for CI / scripts)
+
+${c.dim('Run without --yes for an interactive setup (prompts for language, backend, etc.).')}
 
 ${c.bold('Options for migrate:')}
   --to=<sqlite|supabase>   Required — target backend

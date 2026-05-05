@@ -7,13 +7,16 @@ Install the [Harness-Bujang](https://github.com/bjcho4141/harness-bujang) multi-
 ## Quick start
 
 ```bash
-# English agents (default), drop into the current directory
+# Interactive setup — prompts for language, backend, etc.
 npx harness-bujang init
+
+# Non-interactive (CI / scripts) — accept all defaults
+npx harness-bujang init --yes
 
 # Korean agents (full 부장 persona)
 npx harness-bujang init --lang=ko
 
-# Into a different folder, skip the chat-room UI
+# Different folder, skip the chat-room UI
 npx harness-bujang init --target=./my-app --no-template
 ```
 
@@ -40,8 +43,10 @@ Options:
   --no-template           Skip chat-room UI install
   --no-claude-md          Skip CLAUDE.md edit
   --no-learning-log       Skip learning log seed
-  --yes, -y               Overwrite existing files without asking
+  --yes, -y               Skip prompts and overwrite (non-interactive — for CI / scripts)
 ```
+
+When `--yes` is omitted and stdin is a TTY, the CLI prompts for language, chat backend, and (for Next.js projects) whether to install the chat-room UI.
 
 ### `status`
 
