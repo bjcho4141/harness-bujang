@@ -354,10 +354,10 @@ async function promptInteractive(
   scan: import('./scan.js').ScanResult,
 ): Promise<InitOptions> {
   const lang = (await select({
-    message: 'Agent language',
+    message: 'Agent language / 에이전트 언어',
     choices: [
+      { name: '한국어 — full 부장 persona (Korean)', value: 'ko' },
       { name: 'English', value: 'en' },
-      { name: 'Korean — full 부장 persona (한국어)', value: 'ko' },
     ],
     default: opts.lang,
   })) as 'en' | 'ko';
@@ -383,7 +383,7 @@ async function promptInteractive(
 }
 
 function parseArgs(args: string[]): InitOptions {
-  const lang = (getFlag(args, '--lang') ?? 'en') as 'ko' | 'en';
+  const lang = (getFlag(args, '--lang') ?? 'ko') as 'ko' | 'en';
   if (!['ko', 'en'].includes(lang)) {
     throw new Error(`--lang must be "ko" or "en", got "${lang}"`);
   }

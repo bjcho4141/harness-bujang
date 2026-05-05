@@ -27,7 +27,7 @@ ${c.bold('Usage:')}
   npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  Move chat data between backends
 
 ${c.bold('Options for init:')}
-  --lang=<ko|en>           Agent language (default: en)
+  --lang=<ko|en>           Agent language (default: ko — full 부장 persona)
   --chat=<sqlite|supabase> Chat-room backend (default: sqlite — local file, no setup)
   --commit-chat            Don't gitignore .harness/ (for solo cross-machine sync via git)
   --target=<path>          Project root (default: cwd)
@@ -106,7 +106,7 @@ async function main() {
       break;
     case '--version':
     case '-v':
-      console.log('0.4.1');
+      console.log('0.4.2');
       break;
     case '--help':
     case '-h':

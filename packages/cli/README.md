@@ -10,11 +10,11 @@ Install the [Harness-Bujang](https://github.com/bjcho4141/harness-bujang) multi-
 # Interactive setup — prompts for language, backend, etc.
 npx harness-bujang init
 
-# Non-interactive (CI / scripts) — accept all defaults
+# Non-interactive (CI / scripts) — accept all defaults (Korean agents)
 npx harness-bujang init --yes
 
-# Korean agents (full 부장 persona)
-npx harness-bujang init --lang=ko
+# English agents (default is Korean from 0.4.2+)
+npx harness-bujang init --lang=en
 
 # Different folder, skip the chat-room UI
 npx harness-bujang init --target=./my-app --no-template
@@ -52,7 +52,7 @@ npx harness-bujang chat --create
 npx harness-bujang init [options]
 
 Options:
-  --lang=<ko|en>          Agent language                    (default: en)
+  --lang=<ko|en>          Agent language                    (default: ko — full 부장 persona)
   --target=<path>         Project root                      (default: .)
   --framework=<name>      Override detected framework
   --db=<name>             Override detected DB

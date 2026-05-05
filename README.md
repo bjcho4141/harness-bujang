@@ -185,11 +185,14 @@ graph TD
 ### 길 B — CLI (어떤 환경이든)
 
 ```bash
-# 한국어 부장 페르소나로 (권장)
-npx harness-bujang init --lang=ko
-
-# 영어
+# 인터랙티브 설치 — 언어/백엔드 등을 화면에서 골라가며 (기본: 한국어 부장)
 npx harness-bujang init
+
+# 외운 사람용 — 질문 다 스킵, 한국어 부장 즉시 설치
+npx harness-bujang init --yes
+
+# 영어 페르소나로 가고 싶을 때
+npx harness-bujang init --lang=en
 
 # 다른 폴더
 npx harness-bujang init --target=./my-app
