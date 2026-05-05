@@ -340,8 +340,45 @@ export async function runInit(args: string[]): Promise<void> {
   if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
     console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE!)} for live updates (after env setup)`);
   } else {
-    console.log(`   ${c.cyan('3.')} Watch the chat room: ${c.bold('npx harness-bujang chat --create')} ${c.dim('→ http://localhost:7777')}`);
+    console.log(`   ${c.cyan('3.')} Watch the chat room: ${c.bold('npx harness-bujang chat')} ${c.dim('→ http://localhost:7777')}`);
   }
+  console.log();
+  printRestartReminder(opts.lang);
+}
+
+// ---------------------------------------------------------------------------
+// Cross-cutting reminder used by `init` AND `update` — printed last so users
+// can't miss it. Claude Code only scans `.claude/agents/` at session start, so
+// any newly-added or modified agents won't be visible to the Agent tool until
+// the user reloads them.
+// ---------------------------------------------------------------------------
+
+export function printRestartReminder(lang: 'ko' | 'en'): void {
+  const ko = lang === 'ko';
+  const line = (s: string) => `   ${c.dim('│')} ${s}`;
+  const top = `   ${c.dim('╭' + '─'.repeat(64) + '╮')}`;
+  const bot = `   ${c.dim('╰' + '─'.repeat(64) + '╯')}`;
+  console.log(top);
+  console.log(line(ko
+    ? c.bold(c.yellow('⚠️  Claude Code 가 이미 떠 있다면 에이전트 재로드 필요!'))
+    : c.bold(c.yellow('⚠️  Claude Code already running? Reload agents!'))));
+  console.log(line(''));
+  console.log(line(ko
+    ? '에이전트 등록은 세션 시작 시점에만 일어나므로 새로 깐 팀이'
+    : 'Agents are registered at session start only, so the new teams'));
+  console.log(line(ko
+    ? '바로 인식되지 않습니다. 다음 중 한 가지를 해주세요:'
+    : "won't be visible yet. Pick one:"));
+  console.log(line(''));
+  console.log(line(`  ${c.green('A.')} ${c.bold(ko ? 'Claude Code 안에서: ' : 'Inside Claude Code: ')}${c.cyan('/agents')}`));
+  console.log(line(`     ${c.dim(ko ? '→ 에이전트 메뉴에서 재로드' : '→ open the agent menu / refresh')}`));
+  console.log(line(''));
+  console.log(line(`  ${c.green('B.')} ${c.bold(ko ? '안되면 Claude Code 완전 종료 → 같은 폴더에서 다시 시작' : 'Or fully restart Claude Code in this folder')}`));
+  console.log(line(''));
+  console.log(line(c.dim(ko
+    ? '/clear 는 컨텍스트만 비웁니다 — 에이전트 재등록 안 됨'
+    : '/clear only wipes context — it does NOT re-register agents')));
+  console.log(bot);
   console.log();
 }
 

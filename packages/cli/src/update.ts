@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from './scan.js';
 import { renderTemplate } from './template.js';
+import { printRestartReminder } from './init.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,6 +102,8 @@ export async function runUpdate(args: string[]): Promise<void> {
   console.log('   To overwrite everything (e.g. for a clean reset), use instead:');
   console.log(`     ${c.cyan('npx harness-bujang init --yes')}`);
   console.log();
+  // Critical: tell the user how to make Claude Code see the newly-added agents.
+  printRestartReminder(opts.lang);
 }
 
 // ---------------------------------------------------------------------------

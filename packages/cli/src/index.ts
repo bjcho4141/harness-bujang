@@ -118,7 +118,7 @@ async function main() {
       break;
     case '--version':
     case '-v':
-      console.log('0.5.2');
+      console.log('0.5.4');
       break;
     case '--help':
     case '-h':
