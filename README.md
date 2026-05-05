@@ -133,6 +133,15 @@ npx harness-bujang init --target=./my-app
 
 → Cursor / Cline / Aider 등 다른 도구도 `.claude/agents/`만 인식하면 동일하게 동작합니다.
 
+#### 톡방 보기 — 어떤 스택이든 한 줄
+
+```bash
+npx harness-bujang chat --create
+# → 브라우저 자동 오픈 → http://localhost:7777 (KakaoTalk-style 톡방)
+```
+
+Next.js 의존도 없고, 별도 셋업도 없습니다. SQLite 파일 (`<project>/.harness/chat.db`)을 직접 읽어서 카톡 UI로 띄움. Rails / Django / Express / Rust 어디서든 동작.
+
 ### 길 C — 수동 (커스터마이즈 원할 때)
 
 ```bash
@@ -164,16 +173,18 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 
 ### 프레임워크 자동 감지
 
-| 스택 | 감지 | 톡방 UI 호환 |
-|---|---|---|
-| Next.js (App Router) | ✅ | ✅ 즉시 사용 |
-| SvelteKit | ✅ | ⚠️ 수동 포팅 필요 |
-| Astro / Nuxt | ✅ | ⚠️ 수동 포팅 |
-| Rails | ✅ | ⚠️ 수동 포팅 |
-| Django / FastAPI | ✅ | ⚠️ 수동 포팅 |
-| Python (general) | ✅ | ❌ |
-| Rust / Go | ✅ | ❌ |
-| Generic Node.js | ✅ | ❌ |
+| 스택 | 감지 | Next.js 톡방 UI | `bujang chat` standalone |
+|---|---|---|---|
+| Next.js (App Router) | ✅ | ✅ 즉시 사용 | ✅ |
+| SvelteKit | ✅ | ⚠️ 수동 포팅 필요 | ✅ |
+| Astro / Nuxt | ✅ | ⚠️ 수동 포팅 | ✅ |
+| Rails | ✅ | ❌ | ✅ |
+| Django / FastAPI | ✅ | ❌ | ✅ |
+| Python (general) | ✅ | ❌ | ✅ |
+| Rust / Go | ✅ | ❌ | ✅ |
+| Generic Node.js | ✅ | ❌ | ✅ |
+
+`bujang chat` 은 어떤 스택에서든 SQLite 파일을 직접 읽어서 카톡 UI를 띄우므로, Next.js 톡방 UI가 안 깔리는 환경에서도 동일한 톡방 경험 제공.
 
 ### DB 자동 감지
 
@@ -262,7 +273,7 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] CLI (`npx harness-bujang init/status`)
 - [x] Next.js + Supabase 톡방 UI 템플릿
 - [x] 8개 프레임워크 + 5개 ORM 자동 감지
-- [x] npm 정식 publish — [`harness-bujang@0.3.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05)
+- [x] npm 정식 publish — [`harness-bujang@0.3.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). 0.3.1 publish 대기 (init 메시지 갱신)
 - [x] 인터랙티브 `init` — `@inquirer/prompts` 기반 언어/백엔드/UI 선택 + 기존 설치 감지 시 overwrite 프롬프트 (0.2.0/0.2.1)
 - [x] 슬래시 커맨드 directive 화 — `/bujang-init`, `/bujang-status`, `/bujang-team`, `/bujang-report` 모두 실제 액션 형태로 재작성 (0.2.0)
 - [x] **비-Next.js standalone viewer (`bujang chat`)** — Node http + 임베디드 HTML + system sqlite3, 모든 스택에서 `localhost:7777` 한 줄로 톡방 사용 (0.3.0)

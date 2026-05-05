@@ -21,8 +21,9 @@ harness-bujang/
 ├── packages/
 │   ├── plugin/                          # Claude Code Plugin (/plugin install)
 │   ├── cli/                             # npx harness-bujang (npm publish 대상)
-│   │   ├── src/{index,init,status,migrate,scan,template}.ts
+│   │   ├── src/{index,init,status,migrate,chat,scan,template}.ts
 │   │   ├── scripts/prepare-templates.mjs   # shared → templates/ 번들
+│   │   ├── scripts/sandbox-test.sh         # e2e 검증
 │   │   └── templates/                   # 빌드 산출물 (gitignored)
 │   └── template/                        # Next.js+Supabase 톡방 자산
 │       ├── app/admin/harness/           # KakaoTalk-style UI
@@ -43,10 +44,12 @@ cd packages/cli
 npm run typecheck                         # tsc --noEmit
 npm run build                             # prepare-templates + tsup → dist/
 npm run dev -- init --target=...          # tsx로 직접 실행
+npm run sandbox-test                      # e2e: init → status → chat 전 흐름 검증
 
-# Sandbox 검증
-node packages/cli/dist/index.js init --target=/tmp/sandbox --lang=ko --yes
-node packages/cli/dist/index.js status /tmp/sandbox
+# 수동 sandbox 검증
+node dist/index.js init --target=/tmp/sandbox --lang=ko --yes
+node dist/index.js status /tmp/sandbox
+node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 # Plugin 테스트 (Claude Code 안에서)
 /plugin install bjcho4141/harness-bujang
@@ -66,27 +69,23 @@ node packages/cli/dist/index.js status /tmp/sandbox
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.3.0` 라이브 예정 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+- [x] **npm publish** — `harness-bujang@0.3.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+  - **0.3.1 publish 대기** — 코드는 푸시됨 (`e375d91`), npm 라이브만 안 됨
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
-  - 0.3.0 → 0.3.1: init 메시지 갱신 — 비-Next.js 스택에서 "chat-room support is on the roadmap" 옛 안내문 제거, `bujang chat` 사용법으로 교체. Next steps #3도 컨텍스트별 분기 (Next.js → /admin/harness, 그 외 → bujang chat)
+  - 0.3.0 → 0.3.1: init 메시지 갱신 — "on the roadmap" 옛 안내문 제거 + `bujang chat` 사용법 안내 + Next steps #3 컨텍스트별 분기
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
+- [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ 본인 검증 (완료됨 — 2026-05-05)
+#### 1️⃣ npm publish 0.3.1 (필수, 5분)
 
-`/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.2.0 → 0.2.1 모두 검증 완료.
-인터랙티브 프롬프트, overwrite 프롬프트, 한국어 에이전트 적용까지 모두 정상.
-
-향후 버그 발견 시 패치 절차:
 ```bash
 cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
-# 1. 코드 수정
-# 2. package.json version bump (예: 0.2.1 → 0.2.2)
-# 3. npm publish --access public
+npm publish --access public  # Touch ID 한 번
 ```
 
 #### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
@@ -101,6 +100,16 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 - Reddit: r/ClaudeAI, r/LocalLLaMA
 - Twitter/X 스레드 + GIF
 - 한국 개발자 커뮤니티: GeekNews, OKKY, 페이스북 그룹
+
+#### 향후 패치 절차
+
+```bash
+cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
+# 1. 코드 수정
+# 2. package.json version bump (예: 0.3.1 → 0.3.2 또는 0.4.0)
+# 3. npm run sandbox-test    # 회귀 검증
+# 4. npm publish --access public
+```
 
 ### 🤖 Phase 5 — Claude 작업 항목
 
@@ -147,28 +156,24 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 
 - **GitHub 계정**: `bjcho4141` (push 전 항상 `gh auth switch --user bjcho4141`)
 - **다른 GitHub 계정**: `bjcho9542-hash` 존재하나 **이 프로젝트에선 사용 금지**
-- **npm 계정**: 부장님이 가입 필요 (확인 필요)
+- **npm 계정**: `bjcho4141` (2FA 보안키/passkey 등록됨, `npm publish` 시 Touch ID 인증)
 - **상위 워크스페이스**: `/Users/cho/Desktop/4141/` (vibegig·bibi·BRN 등 형제)
 - **vibegig 위치**: `/Users/cho/Desktop/4141/vibegig` (이 패키지의 원본 — 참조용으로만 봄)
+- **검증용 sandbox 폴더**: `/Users/cho/Desktop/4141/testtest` (기존 설치 있는 상태로 보존 — overwrite 프롬프트 검증용)
 - **사용자 메모리**: `/Users/cho/.claude/projects/-Users-cho-Desktop-4141-vibegig/memory/`
   - 이 패키지에는 별도 memory 없음 (생성되면 그쪽 폴더의 새 경로에)
 
 ## 알려진 한계
 
 - **plugin.json 공식 spec 미검증** — Claude Code Plugin 공식 문서 spec과 정확히 맞는지 확인 필요. 기본 메타데이터는 올바르게 설정됨
-- **better-sqlite3 native 의존성** — 사용자 프로젝트에서 `npm i better-sqlite3` 필요. CLI는 `dependencies` 안 박음 (사용자 책임)
-- **인터랙티브 모드 없음** — `init`은 인자 기반만. `@inquirer/prompts` 추가 시 더 부드러워짐
+- **better-sqlite3 native 의존성** — Next.js 톡방 UI 사용 시 사용자 프로젝트에서 `npm i better-sqlite3` 필요 (CLI dependencies에는 박지 않음). `bujang chat` 은 system sqlite3 CLI를 shell-out 하므로 better-sqlite3 불필요
+- **`bujang chat` Windows 미검증** — system `sqlite3.exe` 설치 + PATH 등록 시 동작해야 하나 실제 검증 미실시
 
 ## 빠른 검증 (다음 세션 시작할 때)
 
 ```bash
-# 빌드 + sandbox 통합 테스트
-cd packages/cli && npm run build \
-  && rm -rf /tmp/sb && mkdir -p /tmp/sb && cd /tmp/sb \
-  && echo '{"name":"sb","scripts":{"build":"next build"},"dependencies":{"next":"^16.0.0"}}' > package.json \
-  && touch tsconfig.json next.config.js \
-  && node /Users/cho/Desktop/4141/harness-bujang/packages/cli/dist/index.js init --target=/tmp/sb --yes \
-  && node /Users/cho/Desktop/4141/harness-bujang/packages/cli/dist/index.js status /tmp/sb
+cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
+npm run build && npm run sandbox-test
 ```
 
-🟢 healthy 나오면 정상.
+🟢 ALL CHECKS PASSED 나오면 정상. 내부적으로 init → status → chat (HTTP) 전 흐름을 임시 폴더에서 검증한다.
