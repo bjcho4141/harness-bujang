@@ -116,6 +116,17 @@ export async function runInit(args: string[]): Promise<void> {
   if (interactive) {
     try {
       opts = await promptInteractive(opts, scan);
+
+      // If a previous install is detected, ask whether to overwrite. Without this,
+      // a user picking (say) Korean on a project that already has English agents
+      // would see all files skipped — their selection silently ignored.
+      if (await isExistingInstall(opts.target)) {
+        const overwrite = await confirm({
+          message: 'Existing harness install detected. Overwrite all files to apply your selections?',
+          default: false,
+        });
+        if (overwrite) opts.yes = true;
+      }
     } catch (err) {
       if (err && typeof err === 'object' && 'name' in err && err.name === 'ExitPromptError') {
         console.log(c.dim('   (aborted)'));
@@ -131,6 +142,7 @@ export async function runInit(args: string[]): Promise<void> {
   if (scan.framework.startsWith('Next.js')) {
     console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
   }
+  console.log(c.dim(`   On conflict:   ${opts.yes ? 'overwrite' : 'skip existing files'}`));
   console.log();
 
   if (interactive) {
@@ -396,6 +408,17 @@ function getFlag(args: string[], name: string): string | undefined {
     return args[idx + 1];
   }
   return undefined;
+}
+
+async function isExistingInstall(target: string): Promise<boolean> {
+  const probes = [
+    path.join(target, '.claude/agents/director.md'),
+    path.join(target, '.claude/agents/dev-team.md'),
+  ];
+  for (const p of probes) {
+    if (await exists(p)) return true;
+  }
+  return false;
 }
 
 async function exists(p: string): Promise<boolean> {
