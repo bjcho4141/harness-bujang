@@ -366,8 +366,9 @@ const ROLES = {
 };
 
 const ROOMS = [
-  // Top-level
-  { id: '대표님',           name: '대표 보고',     icon: '👔', members: ['대표님', '공동대표', 'consultant', '부장'] },
+  // Top-level — kept narrow on purpose so the "smallest matching room wins"
+  // filter routes director→principal reports to 대표 보고 (not 공동대표).
+  { id: '대표님',           name: '대표 보고',     icon: '👔', members: ['대표님', '부장'] },
   { id: '공동대표',         name: '공동대표',      icon: '⭐', members: ['대표님', '공동대표', '부장'] },
   { id: 'consultant',       name: '컨설턴트',      icon: '🤝', members: ['consultant', '부장'] },
   // Engineering teams
