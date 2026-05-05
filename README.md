@@ -8,9 +8,31 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-6366F1.svg)](https://github.com/bjcho4141/harness-bujang)
 
-🇰🇷 [한국어](#-한국어) · 🇺🇸 [English](#-english) · 🚀 [빠른 시작](#-빠른-시작) · 📦 [패키지](#-패키지)
+⚡ [한 줄 설치](#-한-줄-설치--one-line-install) · 🇰🇷 [한국어](#-한국어) · 🇺🇸 [English](#-english) · 🚀 [빠른 시작](#-빠른-시작) · 📦 [패키지](#-패키지)
 
 </div>
+
+---
+
+## ⚡ 한 줄 설치 / One-line install
+
+```bash
+npx harness-bujang@latest init
+```
+
+→ 한국어 부장 페르소나 + 카톡 스타일 톡방 + 9팀 멀티 에이전트가 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
+
+```bash
+# 톡방 보기 (어떤 스택이든) — 브라우저 자동 오픈
+npx harness-bujang@latest chat --create
+
+# Cursor / Cline / Aider / Codex / Antigravity / Gemini 동시 호환
+npx harness-bujang@latest adapt --to=all
+```
+
+> Claude Code · Cursor · Cline · Aider · OpenAI Codex CLI · GitHub Copilot Coding Agent · Sourcegraph Cody · Google Antigravity · Gemini CLI · Gemini Code Assist 모두 호환.
+>
+> 자세한 옵션은 ↓ [빠른 시작](#-빠른-시작) 참조.
 
 ---
 
