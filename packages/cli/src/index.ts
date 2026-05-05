@@ -89,7 +89,7 @@ async function main() {
       break;
     case '--version':
     case '-v':
-      console.log('0.3.0');
+      console.log('0.3.1');
       break;
     case '--help':
     case '-h':

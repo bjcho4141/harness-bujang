@@ -70,6 +70,7 @@ node packages/cli/dist/index.js status /tmp/sandbox
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
+  - 0.3.0 → 0.3.1: init 메시지 갱신 — 비-Next.js 스택에서 "chat-room support is on the roadmap" 옛 안내문 제거, `bujang chat` 사용법으로 교체. Next steps #3도 컨텍스트별 분기 (Next.js → /admin/harness, 그 외 → bujang chat)
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 

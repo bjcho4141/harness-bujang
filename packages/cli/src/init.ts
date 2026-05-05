@@ -317,11 +317,14 @@ export async function runInit(args: string[]): Promise<void> {
       printBackendInstructions(opts.chatBackend, opts.commitChat);
     } else {
       console.log(
-        `${c.yellow('⚠ Chat-room UI is Next.js only.')} ` +
-          c.dim(`Skipping — your stack is detected as ${scan.framework}.`),
+        `${c.yellow('ℹ︎ Chat-room UI (Next.js admin route) skipped')} ` +
+          c.dim(`— your stack is detected as ${scan.framework}.`),
       );
       console.log(
-        c.dim('   (For non-Next.js stacks, use the agents only — chat-room support is on the roadmap.)'),
+        `   ${c.dim('To use the chat room on this stack, run')} ${c.bold('bujang chat')} ${c.dim('— it serves the')}`,
+      );
+      console.log(
+        `   ${c.dim('same KakaoTalk-style viewer at http://localhost:7777, no Next.js needed.')}`,
       );
       console.log();
     }
@@ -334,7 +337,11 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(`   ${c.cyan('1.')} Open Claude Code in this project`);
   console.log(`   ${c.cyan('2.')} Run ${c.bold('/bujang-status')} (if the plugin is installed) or just`);
   console.log(`      ask ${c.bold('"Director, please add a hello-world endpoint"')}`);
-  console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE!)} for live updates (after env setup)`);
+  if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
+    console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE!)} for live updates (after env setup)`);
+  } else {
+    console.log(`   ${c.cyan('3.')} Watch the chat room: ${c.bold('npx harness-bujang chat --create')} ${c.dim('→ http://localhost:7777')}`);
+  }
   console.log();
 }
 
