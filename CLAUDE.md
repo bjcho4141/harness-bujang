@@ -82,11 +82,22 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ npm publish 0.3.1 (필수, 5분)
+#### 1️⃣ npm publish 0.4.0 (필수, 5분)
+
+이번 publish에 0.3.0 → 0.4.0 사이의 모든 변경이 한 번에 라이브됨 (init 메시지 정리, `bujang chat`, `bujang adapt` 5개 어댑터, sandbox-test 확장, Mermaid 다이어그램).
 
 ```bash
 cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 npm publish --access public  # Touch ID 한 번
+```
+
+publish 후 검증:
+```bash
+mkdir -p /tmp/test-040 && cd /tmp/test-040
+npx harness-bujang@latest --version       # → 0.4.0
+npx harness-bujang@latest init --yes --lang=ko
+npx harness-bujang@latest adapt --to=all --yes
+ls -la .cursor .clinerules CONVENTIONS.md AGENTS.md GEMINI.md  # 모두 존재해야 함
 ```
 
 #### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
