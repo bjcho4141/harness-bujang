@@ -377,10 +377,12 @@ const ROOMS = [
 ];
 
 const STORAGE_KEY = 'harness-bujang-read';
+const FILTER_KEY = 'harness-bujang-filter';
 const state = {
   messages: [],
   selectedRoom: null,
   readCounts: JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'),
+  filter: localStorage.getItem(FILTER_KEY) || 'all',  // 'all' | 'unread'
   loading: true,
 };
 
@@ -457,6 +459,16 @@ function render() {
   const warnings = state.messages.filter((m) => m.severity === 'warning').length;
   const infos    = state.messages.filter((m) => m.severity === 'info').length;
 
+  // Pre-compute unread per room (for the filter button + badges).
+  const unreadByRoom = {};
+  let totalUnread = 0;
+  for (const room of ROOMS) {
+    const count = filterMessages(state.messages, room.id).length;
+    const unread = Math.max(0, count - (state.readCounts[room.id] || 0));
+    unreadByRoom[room.id] = unread;
+    totalUnread += unread;
+  }
+
   let html = '<div class="w-80 border-r border-gray-200 bg-white flex flex-col h-full">';
   html += '<div class="p-4 border-b border-gray-200">';
   html += '<h1 class="text-lg font-bold text-gray-900">하네스 톡방</h1>';
@@ -468,14 +480,38 @@ function render() {
     if (infos)    html += '<span class="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded-full">INFO ' + infos + '</span>';
     html += '</div>';
   }
+
+  // Filter buttons — KakaoTalk-style: 전체 / 안읽음
+  html += '<div class="flex gap-2 mt-3">';
+  html += '<button data-filter="all" class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ' +
+          (state.filter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50') +
+          '">전체</button>';
+  html += '<button data-filter="unread" class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ' +
+          (state.filter === 'unread' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50') +
+          '">';
+  html += '<span>💬 안읽음</span>';
+  if (totalUnread > 0) {
+    html += '<span class="px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full">' + totalUnread + '</span>';
+  }
+  html += '</button>';
+  html += '</div>';
   html += '</div>';
 
   html += '<div class="flex-1 overflow-y-auto">';
-  for (const room of ROOMS) {
+  // When 'unread' filter is active, only show rooms with unread > 0.
+  const visibleRooms = state.filter === 'unread'
+    ? ROOMS.filter((r) => unreadByRoom[r.id] > 0)
+    : ROOMS;
+
+  if (visibleRooms.length === 0) {
+    html += '<div class="px-4 py-12 text-center"><p class="text-3xl mb-2">📭</p><p class="text-xs text-gray-500">안읽은 톡방이 없습니다</p></div>';
+  }
+
+  for (const room of visibleRooms) {
     const last = getLastMessage(state.messages, room.id);
     const count = filterMessages(state.messages, room.id).length;
     const isSelected = state.selectedRoom === room.id;
-    const unread = count - (state.readCounts[room.id] || 0);
+    const unread = unreadByRoom[room.id];
     html += '<button data-room-id="' + escapeHtml(room.id) + '" class="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ' +
             (isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50') + '">';
     html += '<div class="flex-shrink-0 w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-2xl">' + room.icon + '</div>';
@@ -549,6 +585,15 @@ function render() {
   html += '</div>';
 
   root.innerHTML = html;
+
+  // Re-bind filter buttons (전체 / 안읽음).
+  document.querySelectorAll('[data-filter]').forEach((el) => {
+    el.addEventListener('click', () => {
+      state.filter = el.getAttribute('data-filter');
+      localStorage.setItem(FILTER_KEY, state.filter);
+      render();
+    });
+  });
 
   // Re-bind room-click handlers (room list).
   document.querySelectorAll('[data-room-id]').forEach((el) => {
