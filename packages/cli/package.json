@@ -1,6 +1,6 @@
 {
   "name": "harness-bujang",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 7 specialist teams, real-time chat-room UI. Korean and English personas. Works with Claude Code, Cursor, Cline, Aider, or any tool that reads .claude/agents/.",
   "keywords": [
     "claude-code",
@@ -43,6 +43,7 @@
     "build": "npm run prepare-templates && tsup src/index.ts --format esm --target node20 --clean --shims",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
+    "sandbox-test": "bash scripts/sandbox-test.sh",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

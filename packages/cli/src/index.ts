@@ -3,6 +3,7 @@
 import { runInit } from './init.js';
 import { runStatus } from './status.js';
 import { runMigrate } from './migrate.js';
+import { runChat } from './chat.js';
 
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -20,6 +21,7 @@ ${c.dim('https://github.com/bjcho4141/harness-bujang')}
 ${c.bold('Usage:')}
   npx harness-bujang ${c.cyan('init')}     [options]    Install the harness into a project
   npx harness-bujang ${c.cyan('status')}   [options]    Verify the harness install
+  npx harness-bujang ${c.cyan('chat')}     [options]    Open the standalone chat-room viewer (any stack)
   npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  Move chat data between backends
 
 ${c.bold('Options for init:')}
@@ -36,6 +38,12 @@ ${c.bold('Options for init:')}
 
 ${c.dim('Run without --yes for an interactive setup (prompts for language, backend, etc.).')}
 
+${c.bold('Options for chat:')}
+  --target=<path>          Project root (default: cwd)
+  --port=<number>          Preferred port (default: 7777, falls forward if busy)
+  --no-open                Don't auto-open the browser
+  --create                 Create an empty chat DB + schema if none exists yet
+
 ${c.bold('Options for migrate:')}
   --to=<sqlite|supabase>   Required — target backend
   --target=<path>          Project root (default: cwd)
@@ -45,9 +53,9 @@ ${c.bold('Examples:')}
   ${c.dim('# Install Korean Bujang persona, SQLite chat (default — zero setup)')}
   npx harness-bujang init --lang=ko
 
-  ${c.dim('# Solo project: localhost-only, no cloud — done')}
-  npx harness-bujang init && npm run dev
-  ${c.dim('# Then: open localhost:3000/admin/harness')}
+  ${c.dim('# Open the standalone chat-room — works on ANY stack (Next.js, Rails, Django, …)')}
+  npx harness-bujang chat
+  ${c.dim('# → opens http://localhost:7777 in your browser')}
 
   ${c.dim('# Solo, multiple machines — sync chat history via git')}
   npx harness-bujang init --commit-chat
@@ -73,13 +81,15 @@ async function main() {
     case 'status':
       await runStatus(args.slice(1));
       break;
+    case 'chat':
+      await runChat(args.slice(1));
+      break;
     case 'migrate':
       await runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':
-      // Version is filled at build time by tsup; fallback for `tsx`.
-      console.log('0.1.0');
+      console.log('0.3.0');
       break;
     case '--help':
     case '-h':

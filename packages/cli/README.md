@@ -20,6 +20,22 @@ npx harness-bujang init --lang=ko
 npx harness-bujang init --target=./my-app --no-template
 ```
 
+### See the chat-room — any stack
+
+```bash
+# Standalone viewer (works on Next.js, Rails, Django, Express, …) — no setup
+npx harness-bujang chat
+# → opens http://localhost:7777 in your browser
+```
+
+The standalone viewer reads `.harness/chat.db` directly, so it works on any
+project that uses the SQLite chat backend (the default). For projects that have
+not posted any messages yet, pass `--create` to bootstrap an empty DB and seed:
+
+```bash
+npx harness-bujang chat --create
+```
+
 ## What it does
 
 1. **Scans** the project — framework (Next.js / SvelteKit / Astro / Rails / Django / …), language, DB (Supabase / Prisma / Drizzle / TypeORM), UI lib, payment integration, GitHub user.
@@ -55,6 +71,27 @@ npx harness-bujang status [path]
 ```
 
 Verifies the install: agent files, `CLAUDE.md` section, learning log, chat-room UI. Counts unfilled `{{...}}` placeholders.
+
+### `chat`
+
+```
+npx harness-bujang chat [options]
+
+Options:
+  --target=<path>         Project root (default: cwd)
+  --port=<number>         Preferred port (default: 7777, falls forward if busy)
+  --no-open               Don't auto-open the browser
+  --create                Create an empty chat DB + schema if none exists yet
+```
+
+Boots a standalone HTTP server (Node `http`, no framework) that reads
+`<target>/.harness/chat.db` via the system `sqlite3` CLI and serves the
+KakaoTalk-style chat-room viewer. Supports both reading and writing — the
+input bar at the bottom of each room sends `from='대표님'` (principal) messages
+that any agent can pick up next time they read the chat.
+
+Requires the `sqlite3` command-line tool (preinstalled on macOS; `apt-get install
+sqlite3` on Ubuntu/WSL; sqlite-tools binaries on Windows).
 
 ## How the harness works once installed
 

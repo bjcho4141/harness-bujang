@@ -66,9 +66,10 @@ node packages/cli/dist/index.js status /tmp/sandbox
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.2.1` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+- [x] **npm publish** — `harness-bujang@0.3.0` 라이브 예정 (2026-05-05). https://www.npmjs.com/package/harness-bujang
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
+  - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 
@@ -100,52 +101,46 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 - Twitter/X 스레드 + GIF
 - 한국 개발자 커뮤니티: GeekNews, OKKY, 페이스북 그룹
 
-### 🤖 다음 세션 Claude한테 시킬 수 있는 일
+### 🤖 Phase 5 — Claude 작업 항목
 
-코드 측면 확장 — 부장님이 외부 작업 끝나고 시간 되면:
-
-#### A. 어댑터 확장 (다른 도구 호환)
+#### A. 어댑터 확장 (다른 도구 호환) 🔴 미완
 
 - [ ] Cursor 어댑터 — `.claude/agents/` → `.cursor/rules/` 변환
 - [ ] Cline 어댑터 — `.claude/agents/` → `.clinerules/` 변환
 - [ ] Aider 어댑터 — `CONVENTIONS.md` 한 파일로 압축
 
-각각 ~1일.
+각각 ~1일. 다음 세션 작업 후보 1순위.
 
-#### B. 비-Next.js standalone viewer
+#### B. 비-Next.js standalone viewer ✅ v0.3.0에 완료
 
-- [ ] `bujang chat` 명령 — Hono/Express + WebSocket + localhost:7777
-- [ ] KakaoTalk UI 단일 HTML로 포팅
-- [ ] SQLite 직접 읽기 (Next.js 라우트 불필요)
-- [ ] Rails/Django/Rust 사용자도 톡방 사용 가능해짐
+- [x] `bujang chat` 명령 — Node http + embedded HTML + system sqlite3 shell-out
+- [x] KakaoTalk UI 단일 HTML로 포팅 (Tailwind CDN + vanilla JS, 폴링 2초)
+- [x] SQLite 직접 읽기 (Next.js 라우트 불필요)
+- [x] Rails/Django/Rust 사용자도 톡방 사용 가능 — `npx harness-bujang chat` 한 줄
+- [x] 입력 바도 동작 — `대표님` 메시지 인서트 가능 (Director 픽업 가능)
+- [x] DB 없으면 `--create` 로 빈 DB + 시드 row 생성
 
-~3일.
+#### C. 슬래시 커맨드 실제 구현 ✅ v0.2.0에 완료
 
-#### C. 슬래시 커맨드 실제 구현
+- [x] `/bujang-init` — `npx harness-bujang@latest init` 직접 호출 지시
+- [x] `/bujang-status` — `npx harness-bujang status .` 실행 + DB 쿼리 옵션
+- [x] `/bujang-team` — Agent tool 호출 + harness_messages INSERT SQL 명세
+- [x] `/bujang-report` — SQLite/Supabase 백엔드 자동 감지 + 집계 로직
 
-현재 `commands/*.md` 는 가이드 텍스트만. 다음 세션에서:
+#### D. 인터랙티브 init ✅ v0.2.0/0.2.1에 완료
 
-- [ ] `/bujang-team` — 실제 Agent 호출 + 톡방 INSERT 로직
-- [ ] `/bujang-status` — DB 직접 조회
-- [ ] `/bujang-report` — 자동 요약 생성
+- [x] `@inquirer/prompts` 추가 — `--yes` 미지정 시 select/confirm 프롬프트
+- [x] 자동 감지 결과 보여주고 사용자 확인
+- [x] 기존 설치 감지 시 overwrite 프롬프트 (0.2.1)
 
-각 ~0.5일.
+#### E. 검증 확장 ✅ v0.3.0에 완료 (일부)
 
-#### D. 인터랙티브 init
-
-- [ ] `@inquirer/prompts` 추가 — 인자 없이 실행 시 질문 던짐
-- [ ] 자동 감지 결과 보여주고 사용자 확인
-- [ ] 더 부드러운 UX
-
-~1일.
-
-#### E. 검증 확장
-
-- [ ] Rails / Django sandbox에 init 검증
-- [ ] better-sqlite3 실제 install 후 init→메시지 INSERT→localhost 보이는 것 검증
-- [ ] migrate 명령 실제 동작 검증 (SQLite 데이터 생성 → Supabase로 이전)
-
-~0.5일.
+- [x] sandbox e2e 검증 스크립트 — `scripts/sandbox-test.sh` (init → status → chat 전 흐름)
+- [x] `npm run sandbox-test` 한 줄로 실행 가능
+- [x] 한국어 에이전트 적용 검증 (director.md에 "부장" 포함 여부)
+- [x] chat HTTP 엔드포인트 검증 (GET / · GET /api/messages · POST /api/messages)
+- [ ] migrate 명령 실제 동작 검증 (SQLite 데이터 → Supabase 이전) — 다음 세션
+- [ ] better-sqlite3 실제 install 후 Next.js 라우트 통합 e2e — 다음 세션
 
 ## 부장님 환경 컨텍스트 (다음 세션 Claude가 알아야 할 것)
 
