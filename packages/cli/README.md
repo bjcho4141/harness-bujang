@@ -61,6 +61,44 @@ npx harness-bujang chat
 
 → Reads `.harness/chat.db` directly. From 0.5.3, the DB is auto-created on first run if missing.
 
+### 🎬 How to use it — call by name
+
+After install, the harness runs **inside Claude Code** by addressing personas:
+
+```
+"Director, please add a refund API"
+"부장님, 결제 환불 API 만들어주세요"
+   ↓ Director persona
+   ├─ Pre-confirm: "Plan to invoke dev-team + security-team + db-guard. Proceed?"
+   ├─ Principal OK → parallel team dispatch (per mapping table)
+   ├─ Each step → chat-room INSERT (live in viewer)
+   └─ Consolidated principal report
+
+"Cofounder, is our BM viable?"
+"공동대표, 우리 BM 이대로 가도 될까?"
+   ↓ Cofounder persona (peer, not subordinate)
+   ├─ Equal debate + push-back
+   ├─ Calls consultant / research-team / analysis-team if data needed
+   └─ Pushes the decision
+```
+
+**Calling rules**:
+
+| Trigger | What happens |
+|---------|--------------|
+| **"Director, ..."** / "부장님, ..." | Director persona — pre-confirm, mapping, chat INSERT, consolidated report |
+| **"Cofounder, ..."** / "공동대표, ..." | Cofounder persona — peer debate / strategy / decision push |
+| **plain "..."** (no name) | Plain Claude — knows harness rules but skips the full workflow |
+| **"dev-team, ..."** directly | ❌ Won't work — the 16 teams are dispatched **by** Director / Cofounder, not addressed directly by the principal |
+
+> 💡 **For the full workflow (pre-confirm + mapping + chat + consolidated report), name the persona.** For quick one-offs, plain Claude is fine.
+
+Natural-language triggers:
+- Open chat: `"부장님 톡방 열어주세요"` / `"open the chat room"`
+- Code review: `"Director, please review the PR"` / `"부장님 PR 리뷰 부탁드립니다"`
+- Onboard team: `"Director, hire a marketing team"` / `"부장님 마케팅팀 채용해주세요"`
+- Strategy: `"Cofounder, what do you think?"` / `"공동대표 의견 좀"`
+
 ## What it does
 
 1. **Scans** the project — framework (Next.js / SvelteKit / Astro / Rails / Django / …), language, DB (Supabase / Prisma / Drizzle / TypeORM), UI lib, payment integration, GitHub user.
