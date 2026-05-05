@@ -1,0 +1,25 @@
+{
+  "name": "harness-bujang",
+  "version": "0.1.0",
+  "displayName": "Harness-Bujang (하네스 부장)",
+  "description": "Korean-style multi-agent harness director for Claude Code — Director, 7 specialist teams, Consultant, and a real-time chat room.",
+  "author": "bjcho4141",
+  "license": "MIT",
+  "homepage": "https://github.com/bjcho4141/harness-bujang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bjcho4141/harness-bujang.git",
+    "directory": "packages/plugin"
+  },
+  "keywords": [
+    "claude-code",
+    "harness",
+    "multi-agent",
+    "orchestration",
+    "korean",
+    "subagent",
+    "director"
+  ],
+  "agents": "./agents",
+  "commands": "./commands"
+}
