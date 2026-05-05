@@ -66,8 +66,9 @@ node packages/cli/dist/index.js status /tmp/sandbox
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.2.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+- [x] **npm publish** — `harness-bujang@0.2.1` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
+  - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 
