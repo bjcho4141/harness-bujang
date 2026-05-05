@@ -1,0 +1,44 @@
+{
+  "name": "harness-bujang",
+  "version": "0.1.0",
+  "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 7 specialist teams, real-time chat-room UI.",
+  "keywords": [
+    "claude-code",
+    "harness",
+    "multi-agent",
+    "subagent",
+    "scaffold",
+    "korean"
+  ],
+  "author": "bjcho4141",
+  "license": "MIT",
+  "homepage": "https://github.com/bjcho4141/harness-bujang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bjcho4141/harness-bujang.git",
+    "directory": "packages/cli"
+  },
+  "type": "module",
+  "bin": {
+    "harness-bujang": "./dist/index.js",
+    "bujang": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node20 --clean",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsup": "^8",
+    "tsx": "^4",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
