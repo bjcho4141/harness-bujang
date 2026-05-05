@@ -74,15 +74,18 @@ node packages/cli/dist/index.js status /tmp/sandbox
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ 본인 검증 (5분, 추천 첫 작업)
+#### 1️⃣ 본인 검증 (완료됨 — 2026-05-05)
 
+`/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.2.0 → 0.2.1 모두 검증 완료.
+인터랙티브 프롬프트, overwrite 프롬프트, 한국어 에이전트 적용까지 모두 정상.
+
+향후 버그 발견 시 패치 절차:
 ```bash
-mkdir -p /tmp/test-bujang && cd /tmp/test-bujang
-npx harness-bujang@latest --help
-npx harness-bujang@latest init --lang=ko --yes
+cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
+# 1. 코드 수정
+# 2. package.json version bump (예: 0.2.1 → 0.2.2)
+# 3. npm publish --access public
 ```
-
-문제 있으면 0.1.1 패치판으로 빠르게 publish. (버전 bump → `npm publish --access public`)
 
 #### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
 
