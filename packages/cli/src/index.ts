@@ -5,6 +5,7 @@ import { runStatus } from './status.js';
 import { runMigrate } from './migrate.js';
 import { runChat } from './chat.js';
 import { runAdapt } from './adapt.js';
+import { runUpdate } from './update.js';
 
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -21,6 +22,7 @@ ${c.dim('https://github.com/bjcho4141/harness-bujang')}
 
 ${c.bold('Usage:')}
   npx harness-bujang ${c.cyan('init')}     [options]    Install the harness into a project
+  npx harness-bujang ${c.cyan('update')}   [options]    Pull NEW agents only — existing files untouched
   npx harness-bujang ${c.cyan('status')}   [options]    Verify the harness install
   npx harness-bujang ${c.cyan('chat')}     [options]    Open the standalone chat-room viewer (any stack)
   npx harness-bujang ${c.cyan('adapt')}    --to=<cursor|cline|aider|codex|gemini|all>  Convert .claude/agents/ for other tools
@@ -50,6 +52,13 @@ ${c.bold('Options for adapt:')}
   --to=<cursor|cline|aider|codex|gemini|all>   Required — comma-separated list also OK
   --target=<path>          Project root (default: cwd)
   --yes, -y                Overwrite existing adapter files
+
+${c.bold('Options for update:')}
+  --target=<path>          Project root (default: cwd)
+  --lang=<ko|en>           Language for newly-added agents (default: ko)
+
+${c.dim('  update only adds NEW agent files. Existing files are NEVER touched.')}
+${c.dim('  For a clean overwrite (resets all agents), use: bujang init --yes')}
 
 ${c.dim('Adapter targets:')}
 ${c.dim('  cursor  → .cursor/rules/bujang-*.mdc          (Cursor IDE)')}
@@ -101,12 +110,15 @@ async function main() {
     case 'adapt':
       await runAdapt(args.slice(1));
       break;
+    case 'update':
+      await runUpdate(args.slice(1));
+      break;
     case 'migrate':
       await runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':
-      console.log('0.5.1');
+      console.log('0.5.2');
       break;
     case '--help':
     case '-h':

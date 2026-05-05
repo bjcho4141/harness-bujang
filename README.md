@@ -28,6 +28,9 @@ npx harness-bujang@latest chat --create
 
 # Cursor / Cline / Aider / Codex / Antigravity / Gemini 동시 호환
 npx harness-bujang@latest adapt --to=all
+
+# 새 버전 받기 — 기존 파일 안 건드리고 신규 팀만 추가 (안전)
+npx harness-bujang@latest update
 ```
 
 > Claude Code · Cursor · Cline · Aider · OpenAI Codex CLI · GitHub Copilot Coding Agent · Sourcegraph Cody · Google Antigravity · Gemini CLI · Gemini Code Assist 모두 호환.
@@ -380,6 +383,7 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] **외부팀원 톡방** — 부장 외부 호출 (vercel-plugin / Plan / general-purpose) 자동 로깅 (0.5.1)
 - [x] **사전 동의 프로토콜** — 디스패치 전 대표님 승인 + 외부 도구 임계값 (1회 / 2~3회 / 5+ 회) (0.5.1)
 - [x] **PRD / 사업 계획 매핑** 테이블 4행 추가 (0.5.1)
+- [x] **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드림. 신규 파일만 추가 — 사용자 커스텀 100% 보존 (0.5.2)
 - [ ] `harness-bujang@1.0.0` 안정 버전 (실사용 피드백 후)
 - [ ] Claude Code 마켓플레이스 등록
 - [ ] 데모 GIF / Cast 영상

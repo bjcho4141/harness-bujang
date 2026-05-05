@@ -81,22 +81,24 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.4.2 → 0.4.3: director.md에 "새 팀원 채용" 절차 명시 (6단계)
   - 0.4.3 → 0.4.4: 톡방 viewer "전체/안읽음" 카톡 스타일 필터
   - 0.4.4 → 0.5.0: **콘텐츠 제작 7팀 추가** (research / analysis / script / image / voice / edit / content-qa) — 코드 9팀과 함께 총 16팀. utube-start 도메인 흡수.
-  - 0.5.0 → **0.5.1**: **공동대표 페르소나** + **외부팀원 톡방** + **사전 동의 프로토콜** + PRD/사업계획 매핑 4행 추가. 부장은 사내 16팀만 호출, 외부 도구는 외부팀원 톡방에 로깅.
+  - 0.5.0 → 0.5.1: **공동대표 페르소나** + **외부팀원 톡방** + **사전 동의 프로토콜** + PRD/사업계획 매핑 4행 추가. 부장은 사내 16팀만 호출, 외부 도구는 외부팀원 톡방에 로깅.
+  - 0.5.1 → **0.5.2**: **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드리고 신규 파일만 추가. 사용자 커스텀 100% 보존. sandbox-test 에 update 회귀 검증.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ npm publish 0.5.1 (필수, 5분)
+#### 1️⃣ npm publish 0.5.2 (필수, 5분)
 
-이번 publish에 **0.4.0 → 0.5.1 사이 7개 패치** 가 한 번에 라이브됨:
+이번 publish에 **0.4.0 → 0.5.2 사이 8개 패치** 가 한 번에 라이브됨:
 - 톡방 입력창 제거 (0.4.1)
 - 한국어 디폴트 (0.4.2)
 - 새 팀원 채용 절차 (0.4.3)
 - 전체/안읽음 필터 (0.4.4)
 - 콘텐츠 7팀 추가 (0.5.0)
 - 공동대표 페르소나 + 외부팀원 톡방 + 사전 동의 + PRD 매핑 (0.5.1)
+- `bujang update` 명령 — 기존 파일 절대 안 건드리는 안전 업데이트 (0.5.2)
 
 ```bash
 cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
@@ -105,12 +107,15 @@ npm publish --access public  # Touch ID 한 번
 
 publish 후 검증:
 ```bash
-mkdir -p /tmp/test-051 && cd /tmp/test-051
-npx harness-bujang@latest --version       # → 0.5.1
+mkdir -p /tmp/test-052 && cd /tmp/test-052
+npx harness-bujang@latest --version       # → 0.5.2
 npx harness-bujang@latest init --yes --lang=ko
 ls .claude/agents/ | wc -l                # → 18 (16팀 + director + cofounder)
 npx harness-bujang@latest adapt --to=all --yes
 ls -la .cursor .clinerules CONVENTIONS.md AGENTS.md GEMINI.md  # 모두 존재
+
+# 안전 업데이트 검증: 기존 파일 안 건드리는지
+npx harness-bujang@latest update          # → 신규 파일 0개 추가, 기존 18개 그대로
 ```
 
 #### 2️⃣ Claude Code 마켓플레이스 등록 (선택)

@@ -199,6 +199,29 @@ grep -q "## code-review-team" "$SANDBOX/.gemini/styleguide.md" || {
 green "  ✓ .gemini/styleguide.md contains review roles"
 
 # ---------------------------------------------------------------------------
+# Step 4.5 — update (additive — never touches existing files)
+# ---------------------------------------------------------------------------
+yellow "== STEP 4.5 == update (additive — preserves customizations)"
+# Delete 2 agents to simulate an outdated install
+rm "$SANDBOX/.claude/agents/cofounder.md"
+rm "$SANDBOX/.claude/agents/image-team.md"
+# Append a custom rule to dev-team.md (must be preserved across update)
+echo "" >> "$SANDBOX/.claude/agents/dev-team.md"
+echo "## CUSTOM_USER_RULE_DO_NOT_LOSE" >> "$SANDBOX/.claude/agents/dev-team.md"
+"${RUN[@]}" update --target="$SANDBOX" --lang=ko > /dev/null
+
+# The 2 deleted files must be back
+assert_file "$SANDBOX/.claude/agents/cofounder.md"
+assert_file "$SANDBOX/.claude/agents/image-team.md"
+# Custom rule must still be present
+grep -q "CUSTOM_USER_RULE_DO_NOT_LOSE" "$SANDBOX/.claude/agents/dev-team.md" || {
+  red "  ✖ User customization in dev-team.md was lost during update"
+  exit 1
+}
+green "  ✓ update added back missing files"
+green "  ✓ user customization in dev-team.md preserved"
+
+# ---------------------------------------------------------------------------
 # Step 5 — migrate (smoke test — sqlite → sqlite no-op succeeds)
 #
 # A real sqlite ↔ supabase round-trip would need network + creds, so we just
