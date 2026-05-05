@@ -103,6 +103,70 @@ Director (Main Claude persona)
 
 10 subagents, 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
 
+### 아키텍처 한눈에
+
+```mermaid
+graph TD
+  P[대표님 / Principal<br/>사용자]
+  D[부장 / Director<br/>Main Claude persona]
+  C[컨설턴트<br/>consultant]
+  AR[아키텍처팀<br/>architect-team]
+  DV[개발팀<br/>dev-team]
+  CR[코드리뷰팀<br/>code-review-team]
+  SE[보안팀<br/>security-team]
+  DB[DB팀<br/>db-guard-team]
+  QA[QA팀<br/>qa-team]
+  DS[문서관리팀<br/>doc-sync-team]
+  VF[검수팀<br/>verifier-team]
+
+  CHAT[(harness_messages<br/>SQLite or Supabase)]
+
+  UI1[/admin/harness<br/>Next.js admin route]
+  UI2[bujang chat<br/>standalone viewer<br/>localhost:7777]
+  UI3[Adapters<br/>.cursor / .clinerules /<br/>CONVENTIONS.md / AGENTS.md]
+
+  P -->|명령| D
+  D <-->|벤치마킹| C
+  D -->|구조 검토| AR
+  D -->|구현 분배| DV
+  DV -.->|병렬 호출| DV
+  D -->|검토| CR
+  D -->|보안| SE
+  D -->|DB| DB
+  D -->|QA| QA
+  D -->|문서| DS
+  D -->|최종 게이트| VF
+  D -->|결과 보고| P
+
+  D -.기록.-> CHAT
+  C -.기록.-> CHAT
+  AR -.기록.-> CHAT
+  DV -.기록.-> CHAT
+  CR -.기록.-> CHAT
+  SE -.기록.-> CHAT
+  DB -.기록.-> CHAT
+  QA -.기록.-> CHAT
+  DS -.기록.-> CHAT
+  VF -.기록.-> CHAT
+
+  CHAT --> UI1
+  CHAT --> UI2
+
+  UI3 -.파생.- D
+
+  style P fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px
+  style D fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+  style CHAT fill:#fef3c7,stroke:#d97706
+  style UI1 fill:#dcfce7,stroke:#16a34a
+  style UI2 fill:#dcfce7,stroke:#16a34a
+  style UI3 fill:#fce7f3,stroke:#db2777
+```
+
+- 보라 = 사용자 / 파랑 = 부장 / 노랑 = 데이터 (chat-room) / 초록 = 톡방 viewer / 분홍 = 다른 도구 어댑터.
+- 점선 (`-.기록.->`) = harness_messages 테이블 INSERT.
+- `bujang chat` 으로 어떤 스택에서든 동일한 카톡 UI 톡방 사용.
+- `bujang adapt` 로 Cursor / Cline / Aider / Codex 등 다른 도구에 동일 페르소나 배포.
+
 ---
 
 ## 🚀 빠른 시작
@@ -273,16 +337,17 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] CLI (`npx harness-bujang init/status`)
 - [x] Next.js + Supabase 톡방 UI 템플릿
 - [x] 8개 프레임워크 + 5개 ORM 자동 감지
-- [x] npm 정식 publish — [`harness-bujang@0.3.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). 0.3.1 publish 대기 (init 메시지 갱신)
+- [x] npm 정식 publish — [`harness-bujang@0.3.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). 0.4.0 publish 대기
 - [x] 인터랙티브 `init` — `@inquirer/prompts` 기반 언어/백엔드/UI 선택 + 기존 설치 감지 시 overwrite 프롬프트 (0.2.0/0.2.1)
 - [x] 슬래시 커맨드 directive 화 — `/bujang-init`, `/bujang-status`, `/bujang-team`, `/bujang-report` 모두 실제 액션 형태로 재작성 (0.2.0)
 - [x] **비-Next.js standalone viewer (`bujang chat`)** — Node http + 임베디드 HTML + system sqlite3, 모든 스택에서 `localhost:7777` 한 줄로 톡방 사용 (0.3.0)
-- [x] **sandbox e2e 검증 스크립트** — `npm run sandbox-test` 한 줄로 init→status→chat 전체 흐름 검증 (0.3.0)
+- [x] **sandbox e2e 검증 스크립트** — `npm run sandbox-test` 한 줄로 init→status→chat→adapt 전체 흐름 검증 (0.3.0/0.4.0)
+- [x] **Cursor / Cline / Aider / Codex / Gemini 어댑터** — `bujang adapt --to=<...>` (0.4.0)
+- [x] **README Mermaid 아키텍처 다이어그램** (0.4.0)
 - [ ] `harness-bujang@1.0.0` 안정 버전 (실사용 피드백 후)
 - [ ] Claude Code 마켓플레이스 등록
-- [ ] Cursor / Cline / Aider 어댑터 (`--adapter=cursor`)
 - [ ] 데모 GIF / Cast 영상
-- [ ] 톡방 UI Mermaid 다이어그램 자동 생성
+- [ ] better-sqlite3 + Next.js 라우트 통합 e2e 검증
 
 ---
 

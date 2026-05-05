@@ -93,6 +93,48 @@ that any agent can pick up next time they read the chat.
 Requires the `sqlite3` command-line tool (preinstalled on macOS; `apt-get install
 sqlite3` on Ubuntu/WSL; sqlite-tools binaries on Windows).
 
+### `adapt`
+
+```
+npx harness-bujang adapt --to=<target> [options]
+
+Targets:
+  cursor    → .cursor/rules/bujang-*.mdc           (Cursor IDE)
+  cline     → .clinerules/bujang-*.md              (Cline)
+  aider     → CONVENTIONS.md + .aider.conf.yml     (Aider)
+  codex     → AGENTS.md                            (OpenAI Codex CLI / Copilot Coding Agent / Cody)
+  gemini    → GEMINI.md + .gemini/styleguide.md    (Antigravity / Gemini CLI / Code Assist)
+  all       → all of the above
+```
+
+Converts the canonical `.claude/agents/*.md` install into the file formats other
+editor / agent harness tools expect. The `.claude/agents/` directory remains the
+single source of truth — re-run `bujang adapt --to=<target>` after changes to
+keep adapters in sync.
+
+Examples:
+
+```bash
+npx harness-bujang adapt --to=cursor       # just Cursor
+npx harness-bujang adapt --to=cursor,aider # multiple
+npx harness-bujang adapt --to=all          # everything
+```
+
+Tools covered (5 adapter formats → 8+ tools):
+
+| Tool | File the adapter writes |
+|------|-------------------------|
+| Cursor IDE | `.cursor/rules/bujang-*.mdc` (with frontmatter) |
+| Cline | `.clinerules/bujang-*.md` |
+| Aider | `CONVENTIONS.md` + `.aider.conf.yml` (`read:`) |
+| OpenAI Codex CLI | `AGENTS.md` |
+| GitHub Copilot Coding Agent | `AGENTS.md` |
+| Sourcegraph Cody | `AGENTS.md` (recent versions) |
+| Google Antigravity | `GEMINI.md` (highest priority) + falls back to `AGENTS.md` |
+| Gemini CLI | `GEMINI.md` |
+| Gemini Code Assist (workspace) | `GEMINI.md` (precedence) + `.gemini/styleguide.md` |
+| Gemini Code Assist (GitHub PR review) | `.gemini/styleguide.md` |
+
 ## How the harness works once installed
 
 ```

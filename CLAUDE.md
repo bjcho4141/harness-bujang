@@ -21,7 +21,7 @@ harness-bujang/
 ├── packages/
 │   ├── plugin/                          # Claude Code Plugin (/plugin install)
 │   ├── cli/                             # npx harness-bujang (npm publish 대상)
-│   │   ├── src/{index,init,status,migrate,chat,scan,template}.ts
+│   │   ├── src/{index,init,status,migrate,chat,adapt,scan,template}.ts
 │   │   ├── scripts/prepare-templates.mjs   # shared → templates/ 번들
 │   │   ├── scripts/sandbox-test.sh         # e2e 검증
 │   │   └── templates/                   # 빌드 산출물 (gitignored)
@@ -70,11 +70,12 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 ### ✅ 끝난 것
 
 - [x] **npm publish** — `harness-bujang@0.3.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
-  - **0.3.1 publish 대기** — 코드는 푸시됨 (`e375d91`), npm 라이브만 안 됨
+  - **0.4.0 publish 대기** — 코드 푸시 완료, npm 라이브만 안 됨 (부장님이 한 번에 publish 예정)
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
   - 0.3.0 → 0.3.1: init 메시지 갱신 — "on the roadmap" 옛 안내문 제거 + `bujang chat` 사용법 안내 + Next steps #3 컨텍스트별 분기
+  - 0.3.1 → 0.4.0: **`bujang adapt --to=<cursor|cline|aider|codex|gemini|all>`** 명령 추가 — 5개 어댑터로 8+ 도구 호환 (Antigravity / Gemini CLI / Code Assist / Codex CLI / Copilot Coding Agent / Cody / Cursor / Cline / Aider). README Mermaid 아키텍처 다이어그램 추가. sandbox-test에 adapt + migrate smoke test 포함
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
@@ -113,13 +114,15 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 
 ### 🤖 Phase 5 — Claude 작업 항목
 
-#### A. 어댑터 확장 (다른 도구 호환) 🔴 미완
+#### A. 어댑터 확장 (다른 도구 호환) ✅ v0.4.0에 완료
 
-- [ ] Cursor 어댑터 — `.claude/agents/` → `.cursor/rules/` 변환
-- [ ] Cline 어댑터 — `.claude/agents/` → `.clinerules/` 변환
-- [ ] Aider 어댑터 — `CONVENTIONS.md` 한 파일로 압축
-
-각각 ~1일. 다음 세션 작업 후보 1순위.
+- [x] Cursor 어댑터 — `.claude/agents/` → `.cursor/rules/bujang-*.mdc` (frontmatter 포함)
+- [x] Cline 어댑터 — `.claude/agents/` → `.clinerules/bujang-*.md`
+- [x] Aider 어댑터 — `CONVENTIONS.md` + `.aider.conf.yml` (read: 자동 추가)
+- [x] **Codex 어댑터** — `AGENTS.md` (Codex CLI / Copilot Coding Agent / Cody)
+- [x] **Gemini 어댑터** — `GEMINI.md` + `.gemini/styleguide.md` (Antigravity / Gemini CLI / Code Assist 워크스페이스 + GitHub PR 리뷰)
+- [x] `bujang adapt --to=all` — 5개 타깃 한 번에
+- [x] sandbox-test 에 어댑터 검증 단계 추가 (10개 파일 + 콘텐츠 체크)
 
 #### B. 비-Next.js standalone viewer ✅ v0.3.0에 완료
 

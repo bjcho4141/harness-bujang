@@ -4,6 +4,7 @@ import { runInit } from './init.js';
 import { runStatus } from './status.js';
 import { runMigrate } from './migrate.js';
 import { runChat } from './chat.js';
+import { runAdapt } from './adapt.js';
 
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -22,6 +23,7 @@ ${c.bold('Usage:')}
   npx harness-bujang ${c.cyan('init')}     [options]    Install the harness into a project
   npx harness-bujang ${c.cyan('status')}   [options]    Verify the harness install
   npx harness-bujang ${c.cyan('chat')}     [options]    Open the standalone chat-room viewer (any stack)
+  npx harness-bujang ${c.cyan('adapt')}    --to=<cursor|cline|aider|codex|gemini|all>  Convert .claude/agents/ for other tools
   npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  Move chat data between backends
 
 ${c.bold('Options for init:')}
@@ -43,6 +45,18 @@ ${c.bold('Options for chat:')}
   --port=<number>          Preferred port (default: 7777, falls forward if busy)
   --no-open                Don't auto-open the browser
   --create                 Create an empty chat DB + schema if none exists yet
+
+${c.bold('Options for adapt:')}
+  --to=<cursor|cline|aider|codex|gemini|all>   Required — comma-separated list also OK
+  --target=<path>          Project root (default: cwd)
+  --yes, -y                Overwrite existing adapter files
+
+${c.dim('Adapter targets:')}
+${c.dim('  cursor  → .cursor/rules/bujang-*.mdc          (Cursor IDE)')}
+${c.dim('  cline   → .clinerules/bujang-*.md             (Cline)')}
+${c.dim('  aider   → CONVENTIONS.md + .aider.conf.yml    (Aider)')}
+${c.dim('  codex   → AGENTS.md                           (Codex CLI / Copilot Coding Agent / Cody)')}
+${c.dim('  gemini  → GEMINI.md + .gemini/styleguide.md   (Antigravity / Gemini CLI / Code Assist)')}
 
 ${c.bold('Options for migrate:')}
   --to=<sqlite|supabase>   Required — target backend
@@ -84,12 +98,15 @@ async function main() {
     case 'chat':
       await runChat(args.slice(1));
       break;
+    case 'adapt':
+      await runAdapt(args.slice(1));
+      break;
     case 'migrate':
       await runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':
-      console.log('0.3.1');
+      console.log('0.4.0');
       break;
     case '--help':
     case '-h':
