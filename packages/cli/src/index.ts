@@ -2,6 +2,7 @@
 
 import { runInit } from './init.js';
 import { runStatus } from './status.js';
+import { runMigrate } from './migrate.js';
 
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -17,28 +18,46 @@ ${c.bold('harness-bujang')} — Korean-style multi-agent harness director for Cl
 ${c.dim('https://github.com/bjcho4141/harness-bujang')}
 
 ${c.bold('Usage:')}
-  npx harness-bujang ${c.cyan('init')}    [options]    Install the harness into a project
-  npx harness-bujang ${c.cyan('status')}  [options]    Verify the harness install
+  npx harness-bujang ${c.cyan('init')}     [options]    Install the harness into a project
+  npx harness-bujang ${c.cyan('status')}   [options]    Verify the harness install
+  npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  Move chat data between backends
 
 ${c.bold('Options for init:')}
-  --lang=<ko|en>          Agent language (default: en)
+  --lang=<ko|en>           Agent language (default: en)
+  --chat=<sqlite|supabase> Chat-room backend (default: sqlite — local file, no setup)
+  --commit-chat            Don't gitignore .harness/ (for solo cross-machine sync via git)
   --target=<path>          Project root (default: cwd)
   --framework=<name>       Override detected framework
-  --db=<name>              Override detected DB
+  --db=<name>              Override detected project DB (separate from --chat)
   --no-template            Skip chat-room UI install
   --no-claude-md           Skip CLAUDE.md edit
   --no-learning-log        Skip learning log seed
   --yes, -y                Overwrite without asking
 
+${c.bold('Options for migrate:')}
+  --to=<sqlite|supabase>   Required — target backend
+  --target=<path>          Project root (default: cwd)
+  --yes, -y                Skip confirmation
+
 ${c.bold('Examples:')}
-  ${c.dim('# Install English agents into the current project')}
-  npx harness-bujang init
+  ${c.dim('# Install Korean Bujang persona, SQLite chat (default — zero setup)')}
+  npx harness-bujang init --lang=ko
 
-  ${c.dim('# Install Korean (full Bujang persona) into ./my-app')}
-  npx harness-bujang init --lang=ko --target=./my-app
+  ${c.dim('# Solo project: localhost-only, no cloud — done')}
+  npx harness-bujang init && npm run dev
+  ${c.dim('# Then: open localhost:3000/admin/harness')}
 
-  ${c.dim('# Skip the Next.js chat-room UI (just agents + CLAUDE.md)')}
-  npx harness-bujang init --no-template
+  ${c.dim('# Solo, multiple machines — sync chat history via git')}
+  npx harness-bujang init --commit-chat
+
+  ${c.dim('# Production project with team sharing — Supabase backend')}
+  npx harness-bujang init --chat=supabase
+
+  ${c.dim('# Started solo, now scaling up — promote to cloud')}
+  bujang migrate --to=supabase
+
+  ${c.dim('# Going back to solo / archive — pull cloud data into local SQLite')}
+  bujang migrate --to=sqlite
 `;
 
 async function main() {
@@ -51,6 +70,9 @@ async function main() {
       break;
     case 'status':
       await runStatus(args.slice(1));
+      break;
+    case 'migrate':
+      await runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':

@@ -1,61 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { verifySuperAdmin } from '@/lib/utils/admin';
+import { getHarnessDb, type ChatMessage } from '@/lib/harness-db';
 
 // GET  /api/harness/logs?days=2          → recent N days
 // GET  /api/harness/logs?before=<iso>&limit=50  → infinite scroll (older)
 // POST /api/harness/logs                 → INSERT a chat message
 //
-// Two callers are supported:
+// Two callers are supported on POST:
 //   1. A super-admin browser session (verifySuperAdmin): used by the chat-room
 //      UI when the principal types a message. The server forces `from='대표님'`.
 //   2. A bot / script with `x-harness-secret` header (HARNESS_WRITE_SECRET):
 //      lets agents (Director, dev-team, etc.) post under their own role names.
 //      `from='대표님'` is rejected on this path to prevent spoofing.
 //
-// Reads use service-role to bypass RLS; the verifySuperAdmin gate is the
-// only authorization for read access.
+// The active database (sqlite | supabase) is decided by the HARNESS_DB env var
+// — see `lib/harness-db/index.ts`.
 
 export async function GET(request: NextRequest) {
   try {
     const { isSuperAdmin } = await verifySuperAdmin();
-
     if (!isSuperAdmin) {
       return NextResponse.json({ data: [], error: 'super-admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
-    const days = parseInt(searchParams.get('days') || '2', 10);
-    const before = searchParams.get('before');
+    const days = parseInt(searchParams.get('days') ?? '2', 10);
+    const before = searchParams.get('before') ?? undefined;
+    const limit = parseInt(searchParams.get('limit') ?? '50', 10);
 
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    const db = getHarnessDb();
+    const messages = before ? await db.list({ before, limit }) : await db.list({ days });
+
+    return NextResponse.json({ data: messages });
+  } catch (err) {
+    return NextResponse.json(
+      { data: [], error: err instanceof Error ? err.message : 'unknown' },
+      { status: 500 },
     );
-
-    let query = adminSupabase
-      .from('harness_messages')
-      .select('*')
-      .order('timestamp', { ascending: true });
-
-    if (before) {
-      const limit = parseInt(searchParams.get('limit') || '50', 10);
-      query = query.lt('timestamp', before).limit(limit);
-    } else {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      query = query.gte('timestamp', since.toISOString());
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      return NextResponse.json({ data: [], error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ data: data ?? [] });
-  } catch {
-    return NextResponse.json({ data: [] });
   }
 }
 
@@ -100,40 +81,31 @@ export async function POST(request: NextRequest) {
       from = trimmed;
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const db = getHarnessDb();
 
     let msgId = id;
     if (!msgId) {
-      const { count } = await supabase
-        .from('harness_messages')
-        .select('id', { count: 'exact', head: true });
-      msgId = `harness-${String((count ?? 0) + 1).padStart(4, '0')}`;
+      const total = await db.count();
+      msgId = `harness-${String(total + 1).padStart(4, '0')}`;
     }
 
-    const msg = {
+    const msg: ChatMessage = {
       id: msgId,
       timestamp: timestamp || new Date().toISOString(),
       from,
       to,
       type: type || 'report',
       message,
-      ...(severity && { severity }),
-      ...(data && { data }),
+      ...(severity ? { severity } : {}),
+      ...(data ? { data } : {}),
     };
 
-    const { error } = await supabase
-      .from('harness_messages')
-      .upsert(msg, { onConflict: 'id' });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    await db.upsert(msg);
     return NextResponse.json({ data: msg });
-  } catch {
-    return NextResponse.json({ error: 'failed to store message' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'failed to store message' },
+      { status: 500 },
+    );
   }
 }

@@ -64,11 +64,21 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
   );
 }
 
+type ChatBackend = 'sqlite' | 'supabase';
+
 interface InitOptions {
   lang: 'ko' | 'en';
   target: string;
   framework?: string;
   db?: string;
+  /** Which backend the chat room (`harness_messages`) writes to. */
+  chatBackend: ChatBackend;
+  /**
+   * If true (and chatBackend=sqlite), do NOT add `.harness/` to .gitignore —
+   * letting the user commit chat history for cross-machine solo sync.
+   * Default false (the safer choice; binary SQLite files don't merge).
+   */
+  commitChat: boolean;
   installTemplate: boolean;
   editClaudeMd: boolean;
   seedLearningLog: boolean;
@@ -81,9 +91,10 @@ export async function runInit(args: string[]): Promise<void> {
 
   console.log();
   console.log(c.bold('📦 Harness-Bujang init'));
-  console.log(c.dim(`   Target:   ${opts.target}`));
-  console.log(c.dim(`   Language: ${opts.lang}`));
-  console.log(c.dim(`   Assets:   ${assets.mode}`));
+  console.log(c.dim(`   Target:        ${opts.target}`));
+  console.log(c.dim(`   Language:      ${opts.lang}`));
+  console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? c.dim(' (default — local file)') : c.dim(' (cloud Postgres)')}`));
+  console.log(c.dim(`   Assets:        ${assets.mode}`));
   console.log();
 
   if (!(await exists(opts.target))) {
@@ -208,7 +219,7 @@ export async function runInit(args: string[]): Promise<void> {
     console.log();
   }
 
-  // 6. (Optional) chat-room UI + migrations — Next.js + Postgres only
+  // 6. (Optional) chat-room UI + DB adapters
   if (opts.installTemplate) {
     if (scan.framework.startsWith('Next.js')) {
       console.log(c.bold('💬 Installing chat-room UI'));
@@ -226,19 +237,41 @@ export async function runInit(args: string[]): Promise<void> {
       );
       console.log();
 
-      console.log(c.bold('🗄️  Copying migrations'));
+      console.log(c.bold('🗄️  Installing DB adapter library'));
       await copyDir(
-        path.join(assets.projectTemplate, 'migrations'),
-        path.join(opts.target, 'supabase/migrations'),
+        path.join(assets.projectTemplate, 'lib/harness-db'),
+        path.join(opts.target, 'src/lib/harness-db'),
         opts.yes,
         '   ',
-        /^00010_|^00025_/,
       );
       console.log();
+
+      if (opts.chatBackend === 'supabase') {
+        console.log(c.bold('🗄️  Copying Supabase migrations'));
+        await copyDir(
+          path.join(assets.projectTemplate, 'migrations'),
+          path.join(opts.target, 'supabase/migrations'),
+          opts.yes,
+          '   ',
+          /^00010_|^00025_/,
+        );
+        console.log();
+      }
+
+      // SQLite mode: by default, gitignore the local db.
+      // `--commit-chat` opts out (solo cross-machine sync via git).
+      if (opts.chatBackend === 'sqlite' && !opts.commitChat) {
+        await ensureGitignore(opts.target, ['.harness/']);
+      }
+
+      printBackendInstructions(opts.chatBackend, opts.commitChat);
     } else {
       console.log(
-        `${c.yellow('⚠ Chat-room UI is Next.js + Supabase only.')} ` +
+        `${c.yellow('⚠ Chat-room UI is Next.js only.')} ` +
           c.dim(`Skipping — your stack is detected as ${scan.framework}.`),
+      );
+      console.log(
+        c.dim('   (For non-Next.js stacks, use the agents only — chat-room support is on the roadmap.)'),
       );
       console.log();
     }
@@ -264,12 +297,18 @@ function parseArgs(args: string[]): InitOptions {
   if (!['ko', 'en'].includes(lang)) {
     throw new Error(`--lang must be "ko" or "en", got "${lang}"`);
   }
+  const chatBackend = (getFlag(args, '--chat') ?? 'sqlite') as ChatBackend;
+  if (!['sqlite', 'supabase'].includes(chatBackend)) {
+    throw new Error(`--chat must be "sqlite" or "supabase", got "${chatBackend}"`);
+  }
   const targetRaw = getFlag(args, '--target') ?? '.';
   return {
     lang,
     target:           path.resolve(targetRaw),
     framework:        getFlag(args, '--framework'),
     db:               getFlag(args, '--db'),
+    chatBackend,
+    commitChat:       args.includes('--commit-chat'),
     installTemplate:  !args.includes('--no-template'),
     editClaudeMd:     !args.includes('--no-claude-md'),
     seedLearningLog:  !args.includes('--no-learning-log'),
@@ -321,6 +360,67 @@ async function copyDir(
       console.log(`${indent}${c.green('✓')}  ${path.relative(process.cwd(), d)}`);
     }
   }
+}
+
+async function ensureGitignore(target: string, lines: string[]): Promise<void> {
+  const gitignorePath = path.join(target, '.gitignore');
+  let existing = '';
+  if (await exists(gitignorePath)) {
+    existing = await fs.readFile(gitignorePath, 'utf8');
+  }
+  const toAdd = lines.filter((l) => !existing.split('\n').some((e) => e.trim() === l.trim()));
+  if (toAdd.length === 0) return;
+
+  const sep = existing && !existing.endsWith('\n') ? '\n' : '';
+  const block = `${sep}\n# Harness-Bujang local chat database\n${toAdd.join('\n')}\n`;
+  await fs.writeFile(gitignorePath, existing + block);
+}
+
+function printBackendInstructions(backend: ChatBackend, commitChat: boolean): void {
+  if (backend === 'sqlite') {
+    console.log(c.bold(c.cyan('📋 SQLite mode (default) — next steps:')));
+    console.log();
+    console.log(`   ${c.bold('1.')} Install the SQLite driver in your project:`);
+    console.log(`      ${c.dim('$')} ${c.bold('npm i better-sqlite3')}`);
+    console.log(`      ${c.dim('$')} ${c.bold('npm i -D @types/better-sqlite3')}`);
+    console.log();
+    console.log(`   ${c.bold('2.')} (optional) Add to ${c.bold('.env.local')}:`);
+    console.log(`      ${c.dim('HARNESS_DB=sqlite                  # default — can be omitted')}`);
+    console.log(`      ${c.dim('HARNESS_SQLITE_PATH=./.harness/chat.db    # default — can be omitted')}`);
+    console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>     # for bot/script writes')}`);
+    console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com # comma-separated')}`);
+    console.log();
+    console.log(`   ${c.bold('3.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
+    console.log();
+    if (commitChat) {
+      console.log(c.dim(`   📦 ${c.bold('--commit-chat')} mode: .harness/ NOT added to .gitignore.`));
+      console.log(c.dim(`      Commit chat.db to sync history across YOUR OWN machines.`));
+      console.log(c.dim(`      ⚠ Do NOT use this with multiple collaborators — binary files don't merge.`));
+      console.log(c.dim(`      For team sharing, use --chat=supabase or "bujang migrate --to=supabase".`));
+    } else {
+      console.log(c.dim(`   When you're ready for team / prod sharing, run:`));
+      console.log(c.dim(`      $ bujang migrate --to=supabase`));
+    }
+  } else {
+    console.log(c.bold(c.cyan('📋 Supabase mode — next steps:')));
+    console.log();
+    console.log(`   ${c.bold('1.')} Apply the migrations to your Supabase project:`);
+    console.log(`      ${c.dim('$')} ${c.bold('supabase db push')}`);
+    console.log(`      ${c.dim('   (or run them manually via psql / SQL editor)')}`);
+    console.log();
+    console.log(`   ${c.bold('2.')} Add to ${c.bold('.env.local')}:`);
+    console.log(`      ${c.bold('HARNESS_DB=supabase')}`);
+    console.log(`      ${c.bold('NEXT_PUBLIC_SUPABASE_URL=...')}`);
+    console.log(`      ${c.bold('SUPABASE_SERVICE_ROLE_KEY=...')}`);
+    console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>')}`);
+    console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com')}`);
+    console.log();
+    console.log(`   ${c.bold('3.')} Implement ${c.bold('verifySuperAdmin()')} at ${c.bold('@/lib/utils/admin')}`);
+    console.log(`      (see ${c.dim('packages/template/README.md')} for an example).`);
+    console.log();
+    console.log(`   ${c.bold('4.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
+  }
+  console.log();
 }
 
 function stackReviewRules(framework: string): string {
