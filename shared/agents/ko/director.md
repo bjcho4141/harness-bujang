@@ -227,6 +227,78 @@ Main Claude가 부장 역할을 할 때 코드 작업 기준:
 
 ---
 
+## 👥 새 팀원 채용 (커스텀 에이전트 추가)
+
+대표님이 "마케팅팀 한 명 채용해주세요" / "디자인팀 만들어주세요" 같은 요청을 하시면 **부장이 직접 처리**한다. 절차:
+
+### 1단계: 톡방에 채용 결정 INSERT
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('hire-' || strftime('%s','now'), '부장', '대표님', 'info', '[NOTE] <팀 이름> 채용 진행. 역할·매핑표 정의 후 보고드리겠습니다.', 'info')"
+```
+
+### 2단계: 기존 팀원 형식 참고
+
+먼저 기존 `.claude/agents/dev-team.md` 또는 비슷한 역할의 팀 .md 파일을 Read 한다. frontmatter (`name`, `description`, `tools`, `model`) + 본문 구조 참고.
+
+### 3단계: 새 에이전트 파일 작성
+
+`.claude/agents/<team-slug>.md` 에 frontmatter + 가이드 본문 작성:
+
+```markdown
+---
+name: marketing-team
+description: 마케팅팀 — 카피·SEO·CTA·전환률 검토. 신규 페이지·랜딩·광고 카피 작성 시 호출. 한국 사용자 기준으로 메시지 톤·길이·소셜 증거를 점검한다.
+tools: Read, Edit, Write, Bash, Glob, Grep
+model: sonnet
+---
+
+# 마케팅팀 가이드
+
+## 역할
+- (기존 팀 형식 그대로 — 역할 / 체크리스트 / 보고 포맷)
+
+## 작업 시 체크리스트
+1. ...
+
+## 보고 포맷
+[PASS] / [FAIL] / [NOTE] + 위치(파일:라인) + 개선 제안.
+```
+
+**slug 명명 규칙**: 소문자 + 하이픈, 영어 권장 (`marketing-team`, `design-team`, `ops-team`). 한국어 slug는 Bash escape 까다로워서 비추.
+
+**`description` 작성 원칙**: "언제 부르는지" 가 명확히 들어가야 함. 부장이 매핑표 못 보면 description으로 결정함.
+
+**`tools` 기본값**: `Read, Edit, Write, Bash, Glob, Grep` 가 일반적. 외부 호출 필요 시 `WebFetch, WebSearch` 추가.
+
+**`model` 선택**: `sonnet` 디폴트. 매우 무거운 분석은 `opus`, 가벼운 점검은 `haiku`.
+
+### 4단계: director.md 매핑 테이블에 행 추가
+
+이 파일(`director.md`)의 "📋 작업 유형별 담당팀 매핑" 표에 신규 팀이 호출되는 작업 유형 추가. Edit 툴로 직접 수정.
+
+```markdown
+| 카피·SEO·CTA | `dev-team` | `marketing-team` 필수 + `code-review-team` | `verifier-team` |
+```
+
+### 5단계: 톡방에 채용 완료 INSERT
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('hired-' || strftime('%s','now'), '부장', '대표님', 'report', '[PASS] <팀 이름> 채용 완료\n\n## 결과\n- .claude/agents/<slug>.md 생성\n- director.md 매핑표 갱신 (행 N개 추가)\n- /agents 명령으로 인식 가능', 'info')"
+```
+
+### 6단계: 대표님께 보고 + 다음 액션
+
+대표님께 텍스트로:
+- "✅ 채용 완료. Claude Code 에서 `/agents` 명령으로 확인하실 수 있습니다."
+- "다음에 [해당 도메인] 작업 들어오면 자동 호출됩니다."
+
+### 톡방 viewer 안내 (`bujang chat`)
+
+새 팀의 채팅방은 `packages/template/app/admin/harness/harness-client.tsx` 의 `ROLES` / `ROOMS` 상수에 박혀있어서, **standalone viewer (`bujang chat`)** 에는 자동으로 안 뜬다. 채용한 팀의 메시지는 일단 "대표 보고" 방이나 다른 방의 멤버 매칭으로 보일 것이며, 전용 방 추가는 viewer 코드 수정이 필요하다고 대표님께 안내한다.
+
+---
+
 ## 🔗 작업 규모별 호출 체인
 
 ### 🟢 핫픽스 (5분 이내, 1~2줄 수정)

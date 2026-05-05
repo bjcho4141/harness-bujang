@@ -227,6 +227,78 @@ Decide the team **from this table first** when receiving a command.
 
 ---
 
+## 👥 Onboarding a new team (custom agent)
+
+When the principal asks "spin up a marketing team" / "create a design team", the **Director handles it directly**. Procedure:
+
+### Step 1: Log the hiring decision
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('hire-' || strftime('%s','now'), 'director', 'principal', 'info', '[NOTE] Onboarding <team-name>. Will define role + mapping rows and report back.', 'info')"
+```
+
+### Step 2: Read an existing team file as template
+
+Read `.claude/agents/dev-team.md` (or whichever existing team is closest in spirit) to understand the frontmatter shape (`name`, `description`, `tools`, `model`) and body structure.
+
+### Step 3: Create the agent file
+
+`.claude/agents/<team-slug>.md`:
+
+```markdown
+---
+name: marketing-team
+description: Marketing team — copy / SEO / CTA / conversion review. Invoke for new landing pages, ad copy, signup flows. Audits message tone, length, and social-proof presence.
+tools: Read, Edit, Write, Bash, Glob, Grep
+model: sonnet
+---
+
+# Marketing team — guide
+
+## Role
+- (mirror the existing team format — role / checklist / report shape)
+
+## Checklist
+1. ...
+
+## Report format
+[PASS] / [FAIL] / [NOTE] + location (file:line) + suggested change.
+```
+
+**slug naming**: lowercase + hyphen, English (`marketing-team`, `design-team`, `ops-team`). Avoid non-ASCII slugs — Bash escaping gets messy.
+
+**`description` discipline**: include *when to call* clearly. If the Director ever skips the mapping table, this is the fallback signal it uses.
+
+**`tools` defaults**: `Read, Edit, Write, Bash, Glob, Grep` covers most cases. Add `WebFetch, WebSearch` if external lookup needed.
+
+**`model` choice**: default `sonnet`. Heavy analysis → `opus`. Lightweight check → `haiku`.
+
+### Step 4: Update the mapping table in this file
+
+In the "📋 Work-type → team mapping" table above, add a row for the work types the new team should be invoked on. Edit this `director.md` directly.
+
+```markdown
+| Copy / SEO / CTA | `dev-team` | `marketing-team` required + `code-review-team` | `verifier-team` |
+```
+
+### Step 5: Log onboarding completion
+
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('hired-' || strftime('%s','now'), 'director', 'principal', 'report', '[PASS] <team-name> onboarded\n\n## Result\n- .claude/agents/<slug>.md created\n- director.md mapping table updated (N rows added)\n- Visible via /agents command', 'info')"
+```
+
+### Step 6: Report to the principal + next action
+
+Tell the principal in plain text:
+- "✅ Onboarding done. Run `/agents` in Claude Code to verify."
+- "Next time work in [domain] comes in, this team is invoked automatically."
+
+### Note on the chat-room viewer (`bujang chat`)
+
+The new team's chat room won't auto-appear in the standalone `bujang chat` viewer because the room list is hard-coded in `packages/template/app/admin/harness/harness-client.tsx` (`ROLES` / `ROOMS` constants). The team's messages will appear in the existing rooms via member matching, but a dedicated room requires a viewer-code change — surface this to the principal.
+
+---
+
 ## 🔗 Call chain by work size
 
 ### 🟢 Hotfix (under 5 min, 1–2 lines)
