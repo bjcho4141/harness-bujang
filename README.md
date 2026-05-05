@@ -20,7 +20,7 @@
 npx harness-bujang@latest init
 ```
 
-→ 한국어 부장 페르소나 + 카톡 스타일 톡방 + **16팀 멀티 에이전트** (코드 엔지니어링 9팀 + 콘텐츠 제작 7팀)가 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
+→ 한국어 부장 페르소나 + **공동대표 페르소나** + 카톡 스타일 톡방 + **16팀 멀티 에이전트** (코드 9팀 + 콘텐츠 7팀) + **외부팀원 톡방** 이 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
 
 ```bash
 # 톡방 보기 (어떤 스택이든) — 브라우저 자동 오픈
@@ -45,13 +45,15 @@ AI를 *도구*로 부리는 게 아니라, **동료·상사·팀원**으로 대�
 
 설치하면 당신의 프로젝트에:
 
-- 🧑‍💼 **부장** — 작업을 분해하고 팀에 분배하고 결과를 책임지는 메인 에이전트
+- 🧑‍💼 **부장** — 작업을 분해하고 팀에 분배하고 결과를 책임지는 메인 페르소나 (위계·실행 책임자)
+- ⭐ **공동대표** *(0.5.1+)* — 대표님과 동등한 피어. 사업 아이디어·전략 토론·결정 푸시 (피어·전략 파트너)
 - 💻 **코드 엔지니어링 9팀** — 개발 / 아키텍처 / 코드리뷰 / 보안 / DB / QA / 검수 / 문서 / 컨설턴트
 - 🎬 **콘텐츠 제작 7팀** *(0.5.0+)* — 리서치 / 분석 / 대본 / 이미지 / 음성 / 편집 / 콘텐츠검수
+- 🌐 **외부팀원 톡방** *(0.5.1+)* — 부장이 외부 도구 (vercel-plugin / Plan / general-purpose 등) 호출 시 자동 로깅
 - 💬 **실시간 톡방** — 에이전트 간 모든 보고가 어드민 페이지·`bujang chat` viewer에서 라이브로 흐름
 - 📚 **집단 학습 로그** — 실수·교훈이 영속 기록되어 세션 간 누적
 
-…이 한 줄 명령으로 들어옵니다. **YouTube 영상 자동화부터 백엔드 API까지** 한 부장이 다 관리.
+…이 한 줄 명령으로 들어옵니다. **YouTube 영상 자동화부터 백엔드 API까지, 사업 계획부터 PRD까지** 한 부장 + 공동대표가 다 관리.
 
 ### 왜 만들었나요?
 
@@ -122,7 +124,7 @@ Director (Main Claude persona)
    Every step → harness_messages chat → live admin UI
 ```
 
-17 subagents (10 engineering + 7 content), 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
+18 personas (1 director + 1 cofounder + 9 engineering + 7 content), 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
 
 ### 아키텍처 한눈에
 
@@ -362,13 +364,22 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] CLI (`npx harness-bujang init/status`)
 - [x] Next.js + Supabase 톡방 UI 템플릿
 - [x] 8개 프레임워크 + 5개 ORM 자동 감지
-- [x] npm 정식 publish — [`harness-bujang@0.3.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). 0.4.0 publish 대기
+- [x] npm 정식 publish — [`harness-bujang@0.4.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). **0.5.1 publish 대기** (7개 패치 일괄)
 - [x] 인터랙티브 `init` — `@inquirer/prompts` 기반 언어/백엔드/UI 선택 + 기존 설치 감지 시 overwrite 프롬프트 (0.2.0/0.2.1)
 - [x] 슬래시 커맨드 directive 화 — `/bujang-init`, `/bujang-status`, `/bujang-team`, `/bujang-report` 모두 실제 액션 형태로 재작성 (0.2.0)
-- [x] **비-Next.js standalone viewer (`bujang chat`)** — Node http + 임베디드 HTML + system sqlite3, 모든 스택에서 `localhost:7777` 한 줄로 톡방 사용 (0.3.0)
-- [x] **sandbox e2e 검증 스크립트** — `npm run sandbox-test` 한 줄로 init→status→chat→adapt 전체 흐름 검증 (0.3.0/0.4.0)
-- [x] **Cursor / Cline / Aider / Codex / Gemini 어댑터** — `bujang adapt --to=<...>` (0.4.0)
+- [x] **비-Next.js standalone viewer (`bujang chat`)** — Node http + 임베디드 HTML + system sqlite3 (0.3.0)
+- [x] **sandbox e2e 검증 스크립트** — `npm run sandbox-test` (0.3.0/0.4.0)
+- [x] **Cursor / Cline / Aider / Codex / Gemini 어댑터** — `bujang adapt --to=<...>` 5개 어댑터 → 8+ 도구 호환 (0.4.0)
 - [x] **README Mermaid 아키텍처 다이어그램** (0.4.0)
+- [x] 톡방 입력창 제거 (Director 자동 픽업 없으면 dead UI) (0.4.1)
+- [x] 한국어 디폴트 + 프롬프트 첫 선택지 한국어로 (0.4.2)
+- [x] director.md 에 "새 팀원 채용 절차" 6단계 명시 (0.4.3)
+- [x] 톡방 viewer "전체 / 안읽음" 카톡 스타일 필터 (0.4.4)
+- [x] **콘텐츠 제작 7팀 추가** — research / analysis / script / image / voice / edit / content-qa. 코드 9팀 + 콘텐츠 7팀 = 총 16팀 (0.5.0)
+- [x] **공동대표 페르소나** — 대표님과 동등한 피어 (사업 아이디어·전략 토론·결정 푸시) (0.5.1)
+- [x] **외부팀원 톡방** — 부장 외부 호출 (vercel-plugin / Plan / general-purpose) 자동 로깅 (0.5.1)
+- [x] **사전 동의 프로토콜** — 디스패치 전 대표님 승인 + 외부 도구 임계값 (1회 / 2~3회 / 5+ 회) (0.5.1)
+- [x] **PRD / 사업 계획 매핑** 테이블 4행 추가 (0.5.1)
 - [ ] `harness-bujang@1.0.0` 안정 버전 (실사용 피드백 후)
 - [ ] Claude Code 마켓플레이스 등록
 - [ ] 데모 GIF / Cast 영상

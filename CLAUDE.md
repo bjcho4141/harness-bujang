@@ -69,27 +69,34 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.3.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
-  - **0.4.0 publish 대기** — 코드 푸시 완료, npm 라이브만 안 됨 (부장님이 한 번에 publish 예정)
+- [x] **npm publish** — `harness-bujang@0.4.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+  - **0.5.1 publish 대기** — 0.4.1 ~ 0.5.1 까지 7개 패치 코드 푸시 완료, npm 라이브만 안 됨 (부장님이 한 번에 publish 예정)
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
   - 0.3.0 → 0.3.1: init 메시지 갱신 — "on the roadmap" 옛 안내문 제거 + `bujang chat` 사용법 안내 + Next steps #3 컨텍스트별 분기
-  - 0.3.1 → 0.4.0: **`bujang adapt --to=<cursor|cline|aider|codex|gemini|all>`** 명령 추가 — 5개 어댑터로 8+ 도구 호환
+  - 0.3.1 → 0.4.0: **`bujang adapt --to=<cursor|cline|aider|codex|gemini|all>`** 명령 추가 — 5개 어댑터로 8+ 도구 호환 (✅ npm 라이브)
   - 0.4.0 → 0.4.1: 톡방 입력창 제거 (Director 자동 픽업 없으면 dead UI)
   - 0.4.1 → 0.4.2: 한국어 디폴트 + 프롬프트 첫 선택지 한국어로 (부장 정체성 강화)
   - 0.4.2 → 0.4.3: director.md에 "새 팀원 채용" 절차 명시 (6단계)
   - 0.4.3 → 0.4.4: 톡방 viewer "전체/안읽음" 카톡 스타일 필터
-  - 0.4.4 → **0.5.0**: **콘텐츠 제작 7팀 추가** (research / analysis / script / image / voice / edit / content-qa) — 코드 9팀과 함께 총 16팀. 한 부장이 코드부터 영상까지 다 관리. utube-start 도메인 흡수.
+  - 0.4.4 → 0.5.0: **콘텐츠 제작 7팀 추가** (research / analysis / script / image / voice / edit / content-qa) — 코드 9팀과 함께 총 16팀. utube-start 도메인 흡수.
+  - 0.5.0 → **0.5.1**: **공동대표 페르소나** + **외부팀원 톡방** + **사전 동의 프로토콜** + PRD/사업계획 매핑 4행 추가. 부장은 사내 16팀만 호출, 외부 도구는 외부팀원 톡방에 로깅.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ npm publish 0.4.0 (필수, 5분)
+#### 1️⃣ npm publish 0.5.1 (필수, 5분)
 
-이번 publish에 0.3.0 → 0.4.0 사이의 모든 변경이 한 번에 라이브됨 (init 메시지 정리, `bujang chat`, `bujang adapt` 5개 어댑터, sandbox-test 확장, Mermaid 다이어그램).
+이번 publish에 **0.4.0 → 0.5.1 사이 7개 패치** 가 한 번에 라이브됨:
+- 톡방 입력창 제거 (0.4.1)
+- 한국어 디폴트 (0.4.2)
+- 새 팀원 채용 절차 (0.4.3)
+- 전체/안읽음 필터 (0.4.4)
+- 콘텐츠 7팀 추가 (0.5.0)
+- 공동대표 페르소나 + 외부팀원 톡방 + 사전 동의 + PRD 매핑 (0.5.1)
 
 ```bash
 cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
@@ -98,11 +105,12 @@ npm publish --access public  # Touch ID 한 번
 
 publish 후 검증:
 ```bash
-mkdir -p /tmp/test-040 && cd /tmp/test-040
-npx harness-bujang@latest --version       # → 0.4.0
+mkdir -p /tmp/test-051 && cd /tmp/test-051
+npx harness-bujang@latest --version       # → 0.5.1
 npx harness-bujang@latest init --yes --lang=ko
+ls .claude/agents/ | wc -l                # → 18 (16팀 + director + cofounder)
 npx harness-bujang@latest adapt --to=all --yes
-ls -la .cursor .clinerules CONVENTIONS.md AGENTS.md GEMINI.md  # 모두 존재해야 함
+ls -la .cursor .clinerules CONVENTIONS.md AGENTS.md GEMINI.md  # 모두 존재
 ```
 
 #### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
