@@ -5,20 +5,30 @@
 //   - "supabase"           — cloud Postgres via Supabase, prod-ready
 //
 // To switch later, run `bujang migrate --to=supabase` (or back to sqlite).
+//
+// IMPORTANT: adapters are loaded with **dynamic `import()`** so that a project
+// using only the SQLite backend doesn't pay for `@supabase/supabase-js` at
+// bundle / install time, and vice versa. (Static imports here would force
+// Next.js / webpack / turbopack to compile both adapters into every chunk
+// that touches the DB — discovered in nextjs-e2e-test against a sqlite-only
+// install where supabase-js wasn't installed and the build failed.)
 
 import type { HarnessDb, HarnessDbMode } from './types';
-import { createSqliteAdapter } from './sqlite';
-import { createSupabaseAdapter } from './supabase';
 
 export type { HarnessDb, ChatMessage, ListOptions, HarnessDbMode } from './types';
-export { createSqliteAdapter, createSupabaseAdapter };
 
 let _instance: HarnessDb | null = null;
+let _pending: Promise<HarnessDb> | null = null;
 
-export function getHarnessDb(): HarnessDb {
-  if (_instance) return _instance;
-  _instance = createAdapter(currentMode());
-  return _instance;
+export function getHarnessDb(): Promise<HarnessDb> {
+  if (_instance) return Promise.resolve(_instance);
+  if (_pending) return _pending;
+  _pending = createAdapter(currentMode()).then((db) => {
+    _instance = db;
+    _pending = null;
+    return db;
+  });
+  return _pending;
 }
 
 export function currentMode(): HarnessDbMode {
@@ -29,11 +39,13 @@ export function currentMode(): HarnessDbMode {
   );
 }
 
-export function createAdapter(mode: HarnessDbMode): HarnessDb {
-  switch (mode) {
-    case 'sqlite':   return createSqliteAdapter();
-    case 'supabase': return createSupabaseAdapter();
+export async function createAdapter(mode: HarnessDbMode): Promise<HarnessDb> {
+  if (mode === 'sqlite') {
+    const { createSqliteAdapter } = await import('./sqlite');
+    return createSqliteAdapter();
   }
+  const { createSupabaseAdapter } = await import('./supabase');
+  return createSupabaseAdapter();
 }
 
 /**
@@ -42,4 +54,5 @@ export function createAdapter(mode: HarnessDbMode): HarnessDb {
  */
 export function resetHarnessDb(): void {
   _instance = null;
+  _pending = null;
 }

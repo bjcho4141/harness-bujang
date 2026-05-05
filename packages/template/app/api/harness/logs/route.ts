@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const before = searchParams.get('before') ?? undefined;
     const limit = parseInt(searchParams.get('limit') ?? '50', 10);
 
-    const db = getHarnessDb();
+    const db = await getHarnessDb();
     const messages = before ? await db.list({ before, limit }) : await db.list({ days });
 
     return NextResponse.json({ data: messages });
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       from = trimmed;
     }
 
-    const db = getHarnessDb();
+    const db = await getHarnessDb();
 
     let msgId = id;
     if (!msgId) {

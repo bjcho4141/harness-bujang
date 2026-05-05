@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });
     }
 
-    const db = getHarnessDb();
+    const db = await getHarnessDb();
     const total = await db.count();
 
     const msg: ChatMessage = {
