@@ -1,0 +1,23 @@
+{
+  "name": "harness-bujang-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Harness-Bujang (하네스 부장) — Korean-style multi-agent harness director for Claude Code",
+  "license": "MIT",
+  "author": "bjcho4141",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bjcho4141/harness-bujang.git"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "echo \"(TODO) build all packages\"",
+    "test": "echo \"(TODO) run all package tests\"",
+    "lint": "echo \"(TODO) lint all packages\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
