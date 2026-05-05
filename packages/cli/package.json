@@ -1,21 +1,30 @@
 {
   "name": "harness-bujang",
   "version": "0.1.0",
-  "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 7 specialist teams, real-time chat-room UI.",
+  "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 7 specialist teams, real-time chat-room UI. Korean and English personas. Works with Claude Code, Cursor, Cline, Aider, or any tool that reads .claude/agents/.",
   "keywords": [
     "claude-code",
+    "claude",
+    "agents",
+    "subagent",
     "harness",
     "multi-agent",
-    "subagent",
+    "orchestration",
     "scaffold",
-    "korean"
+    "init",
+    "korean",
+    "bujang",
+    "anthropic"
   ],
   "author": "bjcho4141",
   "license": "MIT",
-  "homepage": "https://github.com/bjcho4141/harness-bujang",
+  "homepage": "https://github.com/bjcho4141/harness-bujang#readme",
+  "bugs": {
+    "url": "https://github.com/bjcho4141/harness-bujang/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bjcho4141/harness-bujang.git",
+    "url": "git+https://github.com/bjcho4141/harness-bujang.git",
     "directory": "packages/cli"
   },
   "type": "module",
@@ -25,18 +34,22 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "templates",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --target node20 --clean",
+    "prepare-templates": "node scripts/prepare-templates.mjs",
+    "build": "npm run prepare-templates && tsup src/index.ts --format esm --target node20 --clean --shims",
     "dev": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "tsup": "^8",
-    "tsx": "^4",
-    "typescript": "^5"
+    "@types/node": "^20.11.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
   },
   "engines": {
     "node": ">=20"

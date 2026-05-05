@@ -7,13 +7,6 @@ import { renderTemplate } from './template.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In dev (tsx) `__dirname` resolves to packages/cli/src.
-// After build (tsup) it resolves to packages/cli/dist.
-// Either way, going up to the monorepo root finds `shared/`.
-const MONOREPO_ROOT = path.resolve(__dirname, '../../..');
-const SHARED_DIR = path.join(MONOREPO_ROOT, 'shared');
-const TEMPLATE_PKG_DIR = path.join(MONOREPO_ROOT, 'packages/template');
-
 const c = {
   bold:   (s: string) => `\x1b[1m${s}\x1b[22m`,
   dim:    (s: string) => `\x1b[2m${s}\x1b[22m`,
@@ -22,6 +15,54 @@ const c = {
   yellow: (s: string) => `\x1b[33m${s}\x1b[39m`,
   cyan:   (s: string) => `\x1b[36m${s}\x1b[39m`,
 };
+
+interface AssetPaths {
+  agents: string;
+  templates: string;
+  projectTemplate: string;
+  mode: 'packaged' | 'monorepo';
+}
+
+/**
+ * Locate the bundled assets. Two layouts are supported:
+ *
+ *   1. **Packaged** (after `npm install harness-bujang`):
+ *      `<package>/dist/index.js` runs alongside `<package>/templates/` which
+ *      was copied from `shared/` + `packages/template/` at build time.
+ *
+ *   2. **Monorepo dev** (running `tsx src/index.ts` from this repo):
+ *      `<repo>/packages/cli/src/init.ts` reaches up to `<repo>/shared/`.
+ */
+async function resolveAssetPaths(): Promise<AssetPaths> {
+  const packaged = path.resolve(__dirname, '..', 'templates');
+  if (await exists(packaged)) {
+    return {
+      agents: path.join(packaged, 'agents'),
+      templates: path.join(packaged, 'templates'),
+      projectTemplate: path.join(packaged, 'project-template'),
+      mode: 'packaged',
+    };
+  }
+
+  const monorepoRoot = path.resolve(__dirname, '../../..');
+  const sharedDir = path.join(monorepoRoot, 'shared');
+  if (await exists(sharedDir)) {
+    return {
+      agents: path.join(sharedDir, 'agents'),
+      templates: path.join(sharedDir, 'templates'),
+      projectTemplate: path.join(monorepoRoot, 'packages/template'),
+      mode: 'monorepo',
+    };
+  }
+
+  throw new Error(
+    `Could not locate harness-bujang assets. Tried:\n` +
+      `  - ${packaged}\n` +
+      `  - ${sharedDir}\n` +
+      `If installed via npm, try reinstalling. If running from source, ` +
+      `run "npm run build" in packages/cli first.`,
+  );
+}
 
 interface InitOptions {
   lang: 'ko' | 'en';
@@ -36,11 +77,13 @@ interface InitOptions {
 
 export async function runInit(args: string[]): Promise<void> {
   const opts = parseArgs(args);
+  const assets = await resolveAssetPaths();
 
   console.log();
   console.log(c.bold('📦 Harness-Bujang init'));
   console.log(c.dim(`   Target:   ${opts.target}`));
   console.log(c.dim(`   Language: ${opts.lang}`));
+  console.log(c.dim(`   Assets:   ${assets.mode}`));
   console.log();
 
   if (!(await exists(opts.target))) {
@@ -60,52 +103,52 @@ export async function runInit(args: string[]): Promise<void> {
 
   // 2. Build template context
   const context: Record<string, string> = {
-    PROJECT_PATH:        opts.target,
-    PROJECT_NAME:        path.basename(opts.target),
-    PROJECT_CATEGORY:    '',
-    DIFFERENTIATION:     '',
-    STACK_FRAMEWORK:     opts.framework ?? scan.framework,
-    STACK_LANGUAGE:      scan.language,
-    STACK_DB:            opts.db ?? scan.db,
-    STACK_UI:            scan.ui,
-    STACK_PAYMENT:       scan.payment,
-    STACK_EXTRA:         '',
-    HARNESS_TABLE:       'harness_messages',
-    ADMIN_HARNESS_ROUTE: '/admin/harness',
-    LEARNING_LOG_PATH:   'docs/AGENT_LEARNING_LOG.md',
-    TASKS_TRACKER_GLOB:  'docs/TASKS_*.md',
-    BENCHMARK_DOC_PATH:  'docs/BENCHMARK.md',
-    GH_USER:             scan.ghUser,
-    BUILD_CMD:           scan.buildCmd,
-    TYPECHECK_CMD:       scan.typecheckCmd,
-    TEST_CMD:            scan.testCmd,
-    E2E_CMD:             scan.e2eCmd,
-    DEV_URL:             'http://localhost:3000',
-    DB_TYPES_PATH:       scan.dbTypesPath,
-    DB_CLIENT_PATTERN:   `Use the project's existing DB client convention. See ${scan.dbTypesPath} for types.`,
-    KNOWN_SCHEMA_DRIFT:  '(none documented yet)',
-    COMMON_FK_HINTS:     '(extract from your schema as you go)',
-    ACCESS_POLICY_NOTES: '(document RLS / middleware / controller guards as you encounter them)',
-    MIGRATION_NAMING:    'supabase/migrations/XXXXX_name.sql (or per-stack)',
-    MIGRATION_APPLY_CMD: 'supabase db push (or stack-specific)',
-    ROUTE_GROUPS:        scan.routeGroups,
-    MIDDLEWARE_PATH:     scan.middlewarePath,
-    KEY_RELATIONSHIPS:   '(document key entity relations as you go)',
-    AUTH_GUARD_PATTERN:  '(stack-specific — e.g. supabase.auth.getUser())',
-    ADMIN_GUARD_PATTERN: '(stack-specific — e.g. verifyAdmin())',
-    API_RESPONSE_SHAPE:  '{ data, error, message }',
-    PRIMARY_COLOR:       '#6366F1',
+    PROJECT_PATH:         opts.target,
+    PROJECT_NAME:         path.basename(opts.target),
+    PROJECT_CATEGORY:     scan.framework.startsWith('Next.js') ? 'Web application' : 'Software project',
+    DIFFERENTIATION:      '(define your project differentiation here if relevant)',
+    STACK_FRAMEWORK:      opts.framework ?? scan.framework,
+    STACK_LANGUAGE:       scan.language,
+    STACK_DB:             opts.db ?? scan.db,
+    STACK_UI:             scan.ui,
+    STACK_PAYMENT:        scan.payment,
+    STACK_EXTRA:          '(none)',
+    HARNESS_TABLE:        'harness_messages',
+    ADMIN_HARNESS_ROUTE:  '/admin/harness',
+    LEARNING_LOG_PATH:    'docs/AGENT_LEARNING_LOG.md',
+    TASKS_TRACKER_GLOB:   'docs/TASKS_*.md',
+    BENCHMARK_DOC_PATH:   'docs/BENCHMARK.md',
+    GH_USER:              scan.ghUser,
+    BUILD_CMD:            scan.buildCmd || '(no build script — add one if applicable)',
+    TYPECHECK_CMD:        scan.typecheckCmd || '(no type-check command — language may not be statically typed)',
+    TEST_CMD:             scan.testCmd || '(no tests configured)',
+    E2E_CMD:              scan.e2eCmd || '(no E2E setup)',
+    DEV_URL:              'http://localhost:3000',
+    DB_TYPES_PATH:        scan.dbTypesPath,
+    DB_CLIENT_PATTERN:    `Use the project's existing DB client convention. See ${scan.dbTypesPath} for types.`,
+    KNOWN_SCHEMA_DRIFT:   '(none documented yet)',
+    COMMON_FK_HINTS:      '(extract from your schema as you go)',
+    ACCESS_POLICY_NOTES:  '(document RLS / middleware / controller guards as you encounter them)',
+    MIGRATION_NAMING:     'supabase/migrations/XXXXX_name.sql (or per-stack)',
+    MIGRATION_APPLY_CMD:  'supabase db push (or stack-specific)',
+    ROUTE_GROUPS:         scan.routeGroups,
+    MIDDLEWARE_PATH:      scan.middlewarePath,
+    KEY_RELATIONSHIPS:    '(document key entity relations as you go)',
+    AUTH_GUARD_PATTERN:   '(stack-specific — e.g. supabase.auth.getUser())',
+    ADMIN_GUARD_PATTERN:  '(stack-specific — e.g. verifyAdmin())',
+    API_RESPONSE_SHAPE:   '{ data, error, message }',
+    PRIMARY_COLOR:        '#6366F1',
     FRAMEWORK_REVIEW_RULES: stackReviewRules(scan.framework),
-    TEST_ACCOUNTS:       '(define your test accounts here)',
-    LEGAL_CONTEXT:       '',
-    LANG_CODE:           opts.lang,
-    TODAY:               new Date().toISOString().split('T')[0]!,
+    TEST_ACCOUNTS:        '(define your test accounts here)',
+    LEGAL_CONTEXT:        '(no special legal context — remove "Legal/terms" rows in director.md if not applicable)',
+    LANG_CODE:            opts.lang,
+    TODAY:                new Date().toISOString().split('T')[0]!,
     COMPLETED_DOCS_PATTERN: 'docs/완료_*.md',
   };
 
   // 3. Copy agents
   console.log(c.bold(`📂 Installing agents to .claude/agents/`));
-  const agentsSrc = path.join(SHARED_DIR, 'agents', opts.lang);
+  const agentsSrc = path.join(assets.agents, opts.lang);
   const agentsDst = path.join(opts.target, '.claude/agents');
   await fs.mkdir(agentsDst, { recursive: true });
 
@@ -126,7 +169,7 @@ export async function runInit(args: string[]): Promise<void> {
   if (opts.editClaudeMd) {
     console.log(c.bold('📝 Updating CLAUDE.md'));
     const sectionTpl = await fs.readFile(
-      path.join(SHARED_DIR, 'templates', opts.lang, 'CLAUDE.md.harness-section.template'),
+      path.join(assets.templates, opts.lang, 'CLAUDE.md.harness-section.template'),
       'utf8',
     );
     const section = renderTemplate(sectionTpl, context);
@@ -152,7 +195,7 @@ export async function runInit(args: string[]): Promise<void> {
   // 5. Seed learning log
   if (opts.seedLearningLog) {
     console.log(c.bold('🧠 Seeding learning log'));
-    const seedPath = path.join(SHARED_DIR, 'templates', opts.lang, 'AGENT_LEARNING_LOG.seed.md');
+    const seedPath = path.join(assets.templates, opts.lang, 'AGENT_LEARNING_LOG.seed.md');
     const seedRaw = await fs.readFile(seedPath, 'utf8');
     const targetLog = path.join(opts.target, context.LEARNING_LOG_PATH!);
     if (await exists(targetLog)) {
@@ -165,18 +208,18 @@ export async function runInit(args: string[]): Promise<void> {
     console.log();
   }
 
-  // 6. (Optional) chat-room UI + migrations
+  // 6. (Optional) chat-room UI + migrations — Next.js + Postgres only
   if (opts.installTemplate) {
     if (scan.framework.startsWith('Next.js')) {
       console.log(c.bold('💬 Installing chat-room UI'));
       await copyDir(
-        path.join(TEMPLATE_PKG_DIR, 'app/admin/harness'),
+        path.join(assets.projectTemplate, 'app/admin/harness'),
         path.join(opts.target, 'src/app/admin/harness'),
         opts.yes,
         '   ',
       );
       await copyDir(
-        path.join(TEMPLATE_PKG_DIR, 'app/api/harness'),
+        path.join(assets.projectTemplate, 'app/api/harness'),
         path.join(opts.target, 'src/app/api/harness'),
         opts.yes,
         '   ',
@@ -185,17 +228,17 @@ export async function runInit(args: string[]): Promise<void> {
 
       console.log(c.bold('🗄️  Copying migrations'));
       await copyDir(
-        path.join(TEMPLATE_PKG_DIR, 'migrations'),
+        path.join(assets.projectTemplate, 'migrations'),
         path.join(opts.target, 'supabase/migrations'),
         opts.yes,
         '   ',
-        /^00010_|^00025_/, // only the harness migrations — don't touch the user's namespace
+        /^00010_|^00025_/,
       );
       console.log();
     } else {
       console.log(
-        c.yellow('⚠ Chat-room UI is Next.js + Supabase only.') +
-          c.dim(' Skipping — your stack is detected as ' + scan.framework + '.'),
+        `${c.yellow('⚠ Chat-room UI is Next.js + Supabase only.')} ` +
+          c.dim(`Skipping — your stack is detected as ${scan.framework}.`),
       );
       console.log();
     }
@@ -208,7 +251,7 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(`   ${c.cyan('1.')} Open Claude Code in this project`);
   console.log(`   ${c.cyan('2.')} Run ${c.bold('/bujang-status')} (if the plugin is installed) or just`);
   console.log(`      ask ${c.bold('"Director, please add a hello-world endpoint"')}`);
-  console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE)} for live updates (after env setup)`);
+  console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE!)} for live updates (after env setup)`);
   console.log();
 }
 
