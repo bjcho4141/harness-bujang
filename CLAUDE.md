@@ -64,41 +64,31 @@ node packages/cli/dist/index.js status /tmp/sandbox
 
 ## 다음 단계
 
-코드/검증은 다 끝났고 외부 작업만 남음. **누가 해야 하는지** 명확히 분리:
+### ✅ 끝난 것
 
-### 🧑 부장님이 직접 하셔야 하는 일 (외부 계정·결정 필요)
+- [x] **npm publish** — `harness-bujang@0.1.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
+- [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
+- [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 
-다음 4가지는 Claude가 대신 못 함. 외부 계정·2FA·홍보 결정·돈 등이 걸림.
+### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ npm publish — 전세계가 `npx harness-bujang init` 쓸 수 있게
+#### 1️⃣ 본인 검증 (5분, 추천 첫 작업)
 
 ```bash
-# npm 계정 없으면 https://www.npmjs.com/signup 가입 먼저
-cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
-npm login                    # 이메일/2FA 1회
-npm publish --access public  # prepublishOnly가 자동 build
+mkdir -p /tmp/test-bujang && cd /tmp/test-bujang
+npx harness-bujang@latest --help
+npx harness-bujang@latest init --lang=ko --yes
 ```
 
-확인:
-- https://www.npmjs.com/package/harness-bujang 에 페이지 뜨면 성공
-- 검증: `npx harness-bujang@latest --help`
+문제 있으면 0.1.1 패치판으로 빠르게 publish. (버전 bump → `npm publish --access public`)
 
-소요: 5분. 비용: 0원.
-
-#### 2️⃣ GitHub repo Public 전환
-
-- 가서: https://github.com/bjcho4141/harness-bujang/settings
-- 맨 아래 "Danger Zone" → "Change visibility" → Public
-
-지금 Private이면 외부 사용자가 못 봄. Public이어야 `/plugin install bjcho4141/harness-bujang` 도 됨.
-
-#### 3️⃣ Claude Code 마켓플레이스 등록 (선택)
+#### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
 
 - 신청 페이지: https://claude.com/code (Plugin 카탈로그 메뉴)
 - 또는 Anthropic 이메일로 신청
 - 등록되면 `/plugin install harness-bujang` (저장소 prefix 생략 가능)
 
-#### 4️⃣ 마케팅 (선택, 가시성 필요할 때)
+#### 3️⃣ 마케팅 (선택, 가시성 필요할 때)
 
 - HackerNews: "Show HN: Harness-Bujang — Korean-style multi-agent..."
 - Reddit: r/ClaudeAI, r/LocalLLaMA

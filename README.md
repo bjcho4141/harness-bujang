@@ -262,9 +262,13 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] CLI (`npx harness-bujang init/status`)
 - [x] Next.js + Supabase 톡방 UI 템플릿
 - [x] 8개 프레임워크 + 5개 ORM 자동 감지
-- [ ] npm 정식 publish (`harness-bujang@1.0.0`)
+- [x] npm 정식 publish — [`harness-bujang@0.1.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05)
+- [ ] `harness-bujang@1.0.0` 안정 버전 (실사용 피드백 후)
 - [ ] Claude Code 마켓플레이스 등록
-- [ ] Cursor / Cline 어댑터 (`--adapter=cursor`)
+- [ ] Cursor / Cline / Aider 어댑터 (`--adapter=cursor`)
+- [ ] 비-Next.js standalone viewer (`bujang chat`)
+- [ ] 슬래시 커맨드 실제 구현 (`/bujang-team`, `/bujang-status`, `/bujang-report`)
+- [ ] 인터랙티브 `init` (`@inquirer/prompts`)
 - [ ] 데모 GIF / Cast 영상
 - [ ] 톡방 UI Mermaid 다이어그램 자동 생성
 
