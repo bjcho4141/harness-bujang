@@ -20,7 +20,7 @@
 npx harness-bujang@latest init
 ```
 
-→ 한국어 부장 페르소나 + 카톡 스타일 톡방 + 9팀 멀티 에이전트가 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
+→ 한국어 부장 페르소나 + 카톡 스타일 톡방 + **16팀 멀티 에이전트** (코드 엔지니어링 9팀 + 콘텐츠 제작 7팀)가 현재 폴더에 설치됩니다. (인터랙티브 — 기본값 다 엔터로 OK)
 
 ```bash
 # 톡방 보기 (어떤 스택이든) — 브라우저 자동 오픈
@@ -46,13 +46,12 @@ AI를 *도구*로 부리는 게 아니라, **동료·상사·팀원**으로 대�
 설치하면 당신의 프로젝트에:
 
 - 🧑‍💼 **부장** — 작업을 분해하고 팀에 분배하고 결과를 책임지는 메인 에이전트
-- 👥 **7개 전문팀** — 개발 / 아키텍처 / 코드리뷰 / 보안 / DB / QA / 문서
-- 🤝 **컨설턴트** — 경쟁사 벤치마킹 · 업계 자문
-- ✅ **검수팀** — 모든 작업의 최종 관문 (빌드·회귀·교차 검증)
-- 💬 **실시간 톡방** — 에이전트 간 모든 보고가 어드민 페이지에서 라이브로 흐름
+- 💻 **코드 엔지니어링 9팀** — 개발 / 아키텍처 / 코드리뷰 / 보안 / DB / QA / 검수 / 문서 / 컨설턴트
+- 🎬 **콘텐츠 제작 7팀** *(0.5.0+)* — 리서치 / 분석 / 대본 / 이미지 / 음성 / 편집 / 콘텐츠검수
+- 💬 **실시간 톡방** — 에이전트 간 모든 보고가 어드민 페이지·`bujang chat` viewer에서 라이브로 흐름
 - 📚 **집단 학습 로그** — 실수·교훈이 영속 기록되어 세션 간 누적
 
-…이 한 줄 명령으로 들어옵니다.
+…이 한 줄 명령으로 들어옵니다. **YouTube 영상 자동화부터 백엔드 API까지** 한 부장이 다 관리.
 
 ### 왜 만들었나요?
 
@@ -123,53 +122,51 @@ Director (Main Claude persona)
    Every step → harness_messages chat → live admin UI
 ```
 
-10 subagents, 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
+17 subagents (10 engineering + 7 content), 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
 
 ### 아키텍처 한눈에
 
 ```mermaid
 graph TD
-  P[대표님 / Principal<br/>사용자]
+  P[대표님 / Principal]
   D[부장 / Director<br/>Main Claude persona]
-  C[컨설턴트<br/>consultant]
-  AR[아키텍처팀<br/>architect-team]
-  DV[개발팀<br/>dev-team]
-  CR[코드리뷰팀<br/>code-review-team]
-  SE[보안팀<br/>security-team]
-  DB[DB팀<br/>db-guard-team]
-  QA[QA팀<br/>qa-team]
-  DS[문서관리팀<br/>doc-sync-team]
-  VF[검수팀<br/>verifier-team]
+
+  subgraph ENG["💻 코드 엔지니어링 9팀"]
+    C[컨설턴트<br/>consultant]
+    AR[아키텍처팀<br/>architect-team]
+    DV[개발팀<br/>dev-team]
+    CR[코드리뷰팀<br/>code-review-team]
+    SE[보안팀<br/>security-team]
+    DB[DB팀<br/>db-guard-team]
+    QA[QA팀<br/>qa-team]
+    DS[문서팀<br/>doc-sync-team]
+    VF[검수팀<br/>verifier-team]
+  end
+
+  subgraph CON["🎬 콘텐츠 제작 7팀 (0.5.0+)"]
+    RS[리서치팀<br/>research-team]
+    AN[분석팀<br/>analysis-team]
+    SC[대본팀<br/>script-team]
+    IM[이미지팀<br/>image-team]
+    VC[음성팀<br/>voice-team]
+    ED[편집팀<br/>edit-team]
+    CQ[콘텐츠검수팀<br/>content-qa-team]
+  end
 
   CHAT[(harness_messages<br/>SQLite or Supabase)]
 
   UI1[/admin/harness<br/>Next.js admin route]
   UI2[bujang chat<br/>standalone viewer<br/>localhost:7777]
-  UI3[Adapters<br/>.cursor / .clinerules /<br/>CONVENTIONS.md / AGENTS.md]
+  UI3[Adapters<br/>cursor · cline · aider ·<br/>codex · gemini]
 
   P -->|명령| D
-  D <-->|벤치마킹| C
-  D -->|구조 검토| AR
-  D -->|구현 분배| DV
-  DV -.->|병렬 호출| DV
-  D -->|검토| CR
-  D -->|보안| SE
-  D -->|DB| DB
-  D -->|QA| QA
-  D -->|문서| DS
-  D -->|최종 게이트| VF
+  D --> ENG
+  D --> CON
   D -->|결과 보고| P
 
+  ENG -.기록.-> CHAT
+  CON -.기록.-> CHAT
   D -.기록.-> CHAT
-  C -.기록.-> CHAT
-  AR -.기록.-> CHAT
-  DV -.기록.-> CHAT
-  CR -.기록.-> CHAT
-  SE -.기록.-> CHAT
-  DB -.기록.-> CHAT
-  QA -.기록.-> CHAT
-  DS -.기록.-> CHAT
-  VF -.기록.-> CHAT
 
   CHAT --> UI1
   CHAT --> UI2
@@ -178,16 +175,19 @@ graph TD
 
   style P fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px
   style D fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+  style ENG fill:#eff6ff,stroke:#3b82f6
+  style CON fill:#fdf2f8,stroke:#ec4899
   style CHAT fill:#fef3c7,stroke:#d97706
   style UI1 fill:#dcfce7,stroke:#16a34a
   style UI2 fill:#dcfce7,stroke:#16a34a
   style UI3 fill:#fce7f3,stroke:#db2777
 ```
 
-- 보라 = 사용자 / 파랑 = 부장 / 노랑 = 데이터 (chat-room) / 초록 = 톡방 viewer / 분홍 = 다른 도구 어댑터.
-- 점선 (`-.기록.->`) = harness_messages 테이블 INSERT.
-- `bujang chat` 으로 어떤 스택에서든 동일한 카톡 UI 톡방 사용.
-- `bujang adapt` 로 Cursor / Cline / Aider / Codex 등 다른 도구에 동일 페르소나 배포.
+- 보라 = 사용자 / 파랑 = 부장 / 코드 9팀 (파란 박스) / 콘텐츠 7팀 (분홍 박스) / 노랑 = 데이터 / 초록 = viewer / 분홍 = 다른 도구 어댑터.
+- 점선 (`-.기록.->`) = `harness_messages` 테이블 INSERT.
+- 부장은 작업 도메인에 따라 코드 9팀 또는 콘텐츠 7팀 (또는 둘 다) 호출.
+- `bujang chat` 어떤 스택에서든 동일한 카톡 UI.
+- `bujang adapt` 로 Cursor / Cline / Aider / Codex / Gemini 등 다른 도구에 동일 페르소나 배포.
 
 ---
 

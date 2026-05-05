@@ -49,10 +49,26 @@ assert_file() {
   green "  ✓ $(basename "$1")"
 }
 
-dim "  expecting agents + CLAUDE.md + learning log"
+dim "  expecting 17 agents (10 engineering + 7 content) + CLAUDE.md + learning log"
+# Engineering core (10)
 assert_file "$SANDBOX/.claude/agents/director.md"
 assert_file "$SANDBOX/.claude/agents/dev-team.md"
 assert_file "$SANDBOX/.claude/agents/verifier-team.md"
+assert_file "$SANDBOX/.claude/agents/code-review-team.md"
+assert_file "$SANDBOX/.claude/agents/security-team.md"
+assert_file "$SANDBOX/.claude/agents/db-guard-team.md"
+assert_file "$SANDBOX/.claude/agents/qa-team.md"
+assert_file "$SANDBOX/.claude/agents/architect-team.md"
+assert_file "$SANDBOX/.claude/agents/doc-sync-team.md"
+assert_file "$SANDBOX/.claude/agents/consultant.md"
+# Content production (7, added 0.5.0)
+assert_file "$SANDBOX/.claude/agents/research-team.md"
+assert_file "$SANDBOX/.claude/agents/analysis-team.md"
+assert_file "$SANDBOX/.claude/agents/script-team.md"
+assert_file "$SANDBOX/.claude/agents/image-team.md"
+assert_file "$SANDBOX/.claude/agents/voice-team.md"
+assert_file "$SANDBOX/.claude/agents/edit-team.md"
+assert_file "$SANDBOX/.claude/agents/content-qa-team.md"
 assert_file "$SANDBOX/CLAUDE.md"
 assert_file "$SANDBOX/docs/AGENT_LEARNING_LOG.md"
 

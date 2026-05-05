@@ -26,30 +26,49 @@ interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 const ROLES: Record<string, { icon: string; color: string; bg: string; label?: string }> = {
-  '대표님':           { icon: '👔', color: 'text-purple-700', bg: 'bg-purple-100' },
-  '부장':             { icon: '🧑‍💼', color: 'text-blue-700',   bg: 'bg-blue-100',   label: '부장' },
-  'consultant':       { icon: '🤝', color: 'text-indigo-700', bg: 'bg-indigo-100', label: '컨설턴트' },
-  'dev-team':         { icon: '💻', color: 'text-violet-700', bg: 'bg-violet-100', label: '개발팀' },
-  'architect-team':   { icon: '🏗️', color: 'text-cyan-700',   bg: 'bg-cyan-100',   label: '아키텍처팀' },
-  'code-review-team': { icon: '📝', color: 'text-yellow-700', bg: 'bg-yellow-100', label: '코드리뷰팀' },
-  'doc-sync-team':    { icon: '📄', color: 'text-orange-700', bg: 'bg-orange-100', label: '문서관리팀' },
-  'security-team':    { icon: '🛡️', color: 'text-red-700',    bg: 'bg-red-100',    label: '보안팀' },
-  'db-guard-team':    { icon: '🗄️', color: 'text-green-700',  bg: 'bg-green-100',  label: 'DB팀' },
-  'qa-team':          { icon: '🧪', color: 'text-teal-700',   bg: 'bg-teal-100',   label: 'QA팀' },
-  'verifier-team':    { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-100', label: '검수팀' },
+  '대표님':            { icon: '👔', color: 'text-purple-700', bg: 'bg-purple-100' },
+  '부장':              { icon: '🧑‍💼', color: 'text-blue-700',   bg: 'bg-blue-100',   label: '부장' },
+  // Engineering core
+  'consultant':        { icon: '🤝', color: 'text-indigo-700', bg: 'bg-indigo-100', label: '컨설턴트' },
+  'dev-team':          { icon: '💻', color: 'text-violet-700', bg: 'bg-violet-100', label: '개발팀' },
+  'architect-team':    { icon: '🏗️', color: 'text-cyan-700',   bg: 'bg-cyan-100',   label: '아키텍처팀' },
+  'code-review-team':  { icon: '📝', color: 'text-yellow-700', bg: 'bg-yellow-100', label: '코드리뷰팀' },
+  'doc-sync-team':     { icon: '📄', color: 'text-orange-700', bg: 'bg-orange-100', label: '문서관리팀' },
+  'security-team':     { icon: '🛡️', color: 'text-red-700',    bg: 'bg-red-100',    label: '보안팀' },
+  'db-guard-team':     { icon: '🗄️', color: 'text-green-700',  bg: 'bg-green-100',  label: 'DB팀' },
+  'qa-team':           { icon: '🧪', color: 'text-teal-700',   bg: 'bg-teal-100',   label: 'QA팀' },
+  'verifier-team':     { icon: '✅', color: 'text-emerald-700', bg: 'bg-emerald-100', label: '검수팀' },
+  // Content production (0.5.0)
+  'research-team':     { icon: '🔍', color: 'text-sky-700',    bg: 'bg-sky-100',    label: '리서치팀' },
+  'analysis-team':     { icon: '📊', color: 'text-amber-700',  bg: 'bg-amber-100',  label: '분석팀' },
+  'script-team':       { icon: '✍️', color: 'text-pink-700',   bg: 'bg-pink-100',   label: '대본팀' },
+  'image-team':        { icon: '🎨', color: 'text-fuchsia-700',bg: 'bg-fuchsia-100',label: '이미지팀' },
+  'voice-team':        { icon: '🎙️', color: 'text-rose-700',   bg: 'bg-rose-100',   label: '음성팀' },
+  'edit-team':         { icon: '🎬', color: 'text-stone-700',  bg: 'bg-stone-100',  label: '편집팀' },
+  'content-qa-team':   { icon: '🔎', color: 'text-lime-700',   bg: 'bg-lime-100',   label: '콘텐츠검수팀' },
 };
 
 const ROOMS = [
+  // Top
   { id: '대표님',           name: '대표 보고',     icon: '👔', members: ['대표님', 'consultant', '부장'] },
   { id: 'consultant',       name: '컨설턴트',      icon: '🤝', members: ['consultant', '부장'] },
+  // Engineering
   { id: 'architect-team',   name: '아키텍처팀',    icon: '🏗️', members: ['부장', 'architect-team'] },
+  { id: 'dev-team',         name: '개발팀',        icon: '💻', members: ['부장', 'dev-team'] },
   { id: 'code-review-team', name: '코드리뷰팀',    icon: '📝', members: ['부장', 'code-review-team'] },
-  { id: 'doc-sync-team',    name: '문서관리팀',    icon: '📄', members: ['부장', 'doc-sync-team'] },
   { id: 'security-team',    name: '보안팀',        icon: '🛡️', members: ['부장', 'security-team'] },
   { id: 'db-guard-team',    name: 'DB팀',          icon: '🗄️', members: ['부장', 'db-guard-team'] },
   { id: 'qa-team',          name: 'QA팀',          icon: '🧪', members: ['부장', 'qa-team'] },
   { id: 'verifier-team',    name: '검수팀',        icon: '✅', members: ['부장', 'verifier-team'] },
-  { id: 'dev-team',         name: '개발팀',        icon: '💻', members: ['부장', 'dev-team'] },
+  { id: 'doc-sync-team',    name: '문서관리팀',    icon: '📄', members: ['부장', 'doc-sync-team'] },
+  // Content production (0.5.0)
+  { id: 'research-team',    name: '리서치팀',      icon: '🔍', members: ['부장', 'research-team'] },
+  { id: 'analysis-team',    name: '분석팀',        icon: '📊', members: ['부장', 'analysis-team'] },
+  { id: 'script-team',      name: '대본팀',        icon: '✍️', members: ['부장', 'script-team'] },
+  { id: 'image-team',       name: '이미지팀',      icon: '🎨', members: ['부장', 'image-team'] },
+  { id: 'voice-team',       name: '음성팀',        icon: '🎙️', members: ['부장', 'voice-team'] },
+  { id: 'edit-team',         name: '편집팀',       icon: '🎬', members: ['부장', 'edit-team'] },
+  { id: 'content-qa-team',  name: '콘텐츠검수팀',  icon: '🔎', members: ['부장', 'content-qa-team'] },
 ];
 
 const STORAGE_KEY = 'harness-bujang-read';

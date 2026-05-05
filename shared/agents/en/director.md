@@ -215,6 +215,13 @@ Decide the team **from this table first** when receiving a command.
 | Large UX overhaul | `architect-team` → `dev-team` (parallel) | `code-review-team` + `qa-team` | `verifier-team` |
 | Refactor | `dev-team` (driven by review) | `code-review-team` | `verifier-team` |
 | Hotfix (1–2 lines) | Director or 1× `dev-team` | (optional) | `verifier-team` build only |
+| **External content / keyword research** | `research-team` | (optional) | — |
+| **Reference video / article analysis** | `analysis-team` (research → analysis) | — | — |
+| **Video / blog / newsletter scripts** | `script-team` | `content-qa-team` (script review) | (gate: principal approval) |
+| **Images / thumbnails / illustrations** | `image-team` (CHARACTER_SHEET required) | `content-qa-team` (image review — most important) | — |
+| **Narration / TTS / subtitles** | `voice-team` | `content-qa-team` (voice + subtitle review) | — |
+| **Video / audio editing** | `edit-team` (FFmpeg) | `content-qa-team` pass required upstream | (self ffprobe check) |
+| **Full content pipeline** (script→images→voice→edit) | `script-team` → `image-team` ∥ `voice-team` → `edit-team` | `content-qa-team` after each stage | multi-gate |
 
 > Domain rows like "Payment", "Legal" are added/removed by the init script depending on `{{LEGAL_CONTEXT}}` / `{{STACK_PAYMENT}}`.
 

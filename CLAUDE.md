@@ -75,7 +75,12 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
   - 0.3.0 → 0.3.1: init 메시지 갱신 — "on the roadmap" 옛 안내문 제거 + `bujang chat` 사용법 안내 + Next steps #3 컨텍스트별 분기
-  - 0.3.1 → 0.4.0: **`bujang adapt --to=<cursor|cline|aider|codex|gemini|all>`** 명령 추가 — 5개 어댑터로 8+ 도구 호환 (Antigravity / Gemini CLI / Code Assist / Codex CLI / Copilot Coding Agent / Cody / Cursor / Cline / Aider). README Mermaid 아키텍처 다이어그램 추가. sandbox-test에 adapt + migrate smoke test 포함
+  - 0.3.1 → 0.4.0: **`bujang adapt --to=<cursor|cline|aider|codex|gemini|all>`** 명령 추가 — 5개 어댑터로 8+ 도구 호환
+  - 0.4.0 → 0.4.1: 톡방 입력창 제거 (Director 자동 픽업 없으면 dead UI)
+  - 0.4.1 → 0.4.2: 한국어 디폴트 + 프롬프트 첫 선택지 한국어로 (부장 정체성 강화)
+  - 0.4.2 → 0.4.3: director.md에 "새 팀원 채용" 절차 명시 (6단계)
+  - 0.4.3 → 0.4.4: 톡방 viewer "전체/안읽음" 카톡 스타일 필터
+  - 0.4.4 → **0.5.0**: **콘텐츠 제작 7팀 추가** (research / analysis / script / image / voice / edit / content-qa) — 코드 9팀과 함께 총 16팀. 한 부장이 코드부터 영상까지 다 관리. utube-start 도메인 흡수.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)

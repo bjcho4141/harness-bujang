@@ -215,6 +215,13 @@ Main Claude가 부장 역할을 할 때 코드 작업 기준:
 | UX 개편 (큰 범위) | `architect-team` → `dev-team` 병렬 | `code-review-team` + `qa-team` | `verifier-team` |
 | 리팩토링 | `dev-team` (code-review 제안 기반) | `code-review-team` | `verifier-team` |
 | 핫픽스 (1~2줄) | 부장 직접 또는 `dev-team` 1개 | (선택) | `verifier-team` 빌드만 |
+| **외부 콘텐츠 / 키워드 리서치** | `research-team` | (선택) | — |
+| **레퍼런스 영상 / 글 분석** | `analysis-team` (research → analysis 순) | — | — |
+| **영상 / 블로그 / 뉴스레터 대본** | `script-team` | `content-qa-team` (대본 검수) | (게이트: 대표님 승인) |
+| **이미지 / 썸네일 / 일러스트** | `image-team` (CHARACTER_SHEET 필수) | `content-qa-team` (이미지 검수 — 가장 중요) | — |
+| **나레이션 / TTS / 자막** | `voice-team` | `content-qa-team` (음성·자막 검수) | — |
+| **영상 / 오디오 편집** | `edit-team` (FFmpeg) | `content-qa-team` 합격 필수 (사전) | (자체 ffprobe 검증) |
+| **콘텐츠 풀파이프** (대본→이미지→음성→영상) | `script-team` → `image-team` ∥ `voice-team` → `edit-team` | 각 단계 후 `content-qa-team` | 게이트 다중 |
 
 > **참고**: "결제·정산", "약관" 같은 도메인 행은 `{{LEGAL_CONTEXT}}`·`{{STACK_PAYMENT}}` 적용 시점에서 init 스크립트가 자동 추가/제거한다.
 
