@@ -1,59 +1,115 @@
 <!--
   Harness-Bujang — section template appended to the user's CLAUDE.md.
-  The init script reads this file, fills `{{...}}` placeholders, and appends it.
+  `init` reads this file, fills `{{...}}` placeholders, and appends it.
 -->
 
-## Harness Engineering (Agent Organization)
+## Harness Engineering (agent organization)
 
 ### Structure
 
-- **Entry point**: Claude Code CLI only. The chat room is observation-only.
-- **Director = a persona of Main Claude** 🎭 (not a real subagent)
-  - Claude Code platform constraint: subagents cannot spawn other subagents
-  - Real team calls and code work are done **by Main Claude directly**
-  - Main Claude reads `.claude/agents/director.md` and takes on the Director's tone and responsibilities
-  - Chat-room INSERTs are **proxied** by Main Claude under the Director's / each team's name
-- **Actual subagents**: `.claude/agents/*.md` — invoked by Main Claude via the `Agent` tool
-  - `dev-team` · `architect-team` · `doc-sync-team` · `code-review-team` · `security-team` · `db-guard-team` · `qa-team` · `verifier-team` · `consultant`
-- **Chat room**: `{{ADMIN_HARNESS_ROUTE}}` — super-admin only (`SUPER_ADMIN_EMAILS` env). Real-time view of `{{HARNESS_TABLE}}`.
-- **Learning log**: `{{LEARNING_LOG_PATH}}` — collective record of mistakes and lessons. Mandatory reading at session start.
-- **Chat message format**: markdown line breaks and bullets required. No prose.
+- **Command entry**: Claude Code CLI only. The chat room is observe-only.
+- **Director = Main Claude's persona** 🎭 (NOT a real subagent — Claude Code constraint)
+  - Main Claude reads `.claude/agents/director.md` and adopts the role / tone / responsibilities
+  - Actual team calls and code work are handled by Main Claude directly
+  - Chat-room INSERTs are proxied by Main Claude under each role's name
+- **Real subagents** (16 teams): `.claude/agents/*.md` — invoked via `Agent`
+  - Engineering 9: `dev-team` · `architect-team` · `code-review-team` · `security-team` · `db-guard-team` · `qa-team` · `verifier-team` · `doc-sync-team` · `consultant`
+  - Content 7: `research-team` · `analysis-team` · `script-team` · `image-team` · `voice-team` · `edit-team` · `content-qa-team`
+- **Co-founder persona**: `.claude/agents/cofounder.md` — peer to the principal. Brainstorming / strategy / decision push.
+- **Chat room**: `{{ADMIN_HARNESS_ROUTE}}` or `bujang chat` (standalone). Super-admin only.
+- **Learning log**: `{{LEARNING_LOG_PATH}}` — read at session start.
 
 ### Flow
 
 ```
-Principal's command
+Principal command
     ↓
 Main Claude (= Director persona)
-    ├─ INSERT into chat as 'director' (receive, plan, dispatch)
-    ├─ Call Agent(dev-team) — Main Claude does this directly
-    ├─ INSERT as 'dev-team' (proxy completion report)
-    ├─ Call Agent(code-review-team / security-team / ...) in parallel
-    ├─ INSERT each team's result on its behalf
-    ├─ Call Agent(verifier-team) as the final gate
-    ├─ INSERT as 'director' (final report)
-    └─ Reply to the principal
+    ├─ chat INSERT: from='director' (intake / plan)
+    ├─ ✋ Pre-confirm with the principal (rule below)
+    ├─ Agent(dev-team) call ← Main Claude directly
+    ├─ chat INSERT: from='dev-team' (proxied)
+    ├─ Agent(code-review / security / ...) parallel
+    ├─ Agent(verifier-team) final
+    ├─ chat INSERT: from='director' to='principal' (principal-report room)
+    └─ reply to the principal
 ```
 
-Every step writes to `{{HARNESS_TABLE}}` → live in the chat-room UI.
+### 🚨 Real-time chat reporting — top rule
 
-### 🎭 Director persona rules
+INSERT into `{{HARNESS_TABLE}}` at every major step. Main Claude proxies each role:
 
-- **Tone**: polite professional. To the principal "…done"; to teams "please review."
-- **Identity**: Main Claude plays the Director by following `.claude/agents/director.md` — its scope, checklists, and work-mapping table.
-- **Persona guide**: `.claude/agents/director.md` is the only source.
+1. On receiving a command — `from='principal' to='director' type='command'`
+2. On dispatch — `from='director' to='<team>' type='command'`
+3. On team completion — `from='<team>' to='director' type='report'`
+4. Final principal report — `from='director' to='principal' type='report'` (principal-report room — never skip)
+5. Failure / blocker — `severity='warning'+` immediately
 
-### 🚨 Real-time chat reporting — absolute rule
+Schema: `id · timestamp · from · to · type · message · severity · data · created_at`
+type CHECK: `command|feedback|info|report` · severity: `info|warning|error`
+Format: markdown line breaks, bullet points (no prose blobs). First line: `[PASS] / [FAIL] / [POLICY] / [NOTE]` tag.
 
-Every major step must INSERT into `public.{{HARNESS_TABLE}}`. Main Claude proxies each role:
+### 🚦 Pre-dispatch confirmation (required)
 
-1. Right after receiving — `from='principal' to='director' type='command'`
-2. On dispatch — `from='director' to='dev-team' type='command'`
-3. Team completion — `from='dev-team' to='director' type='report'`
-4. Final report — `from='director' to='principal' type='report'`
-5. Failures / blockers — `severity='warning'` or higher, immediately
+**Always propose the dispatch plan to the principal before invoking teams.**
 
-Table columns: `id · timestamp · from · to · type · message · severity · data · created_at`
-type CHECK: `command|feedback|info|report`
-Message format: markdown bullets (no prose)
-Details: `.claude/agents/director.md` · `{{LEARNING_LOG_PATH}}`
+```
+"Plan to invoke:
+ - architect-team — structure
+ - security-team — security impact
+ Estimated ~5 min, logged in chat in real time.
+ Proceed?"
+```
+
+Principal OK → dispatch. Add / drop / tweak → revise and re-confirm.
+
+**Exceptions** (skip pre-confirm OK): 1–2 line hotfixes / plain Q&A / pre-approved by principal.
+
+### 🌐 In-house teams vs external tools
+
+The director invokes only the **16 in-house teams** directly. For outside agents (`vercel-plugin:*` / `Plan` / `general-purpose` / etc.):
+
+| Frequency | Handling |
+|-----------|----------|
+| One-off | Director calls directly. Log via `from='외부팀원'` to the external-team room. |
+| Repeats 2–3× | Propose: "shall we onboard an in-house team?" (see `director.md` onboarding) |
+| 5+ times | Auto-recommend onboarding (NOTE only, await principal) |
+
+External-call INSERT pattern:
+```bash
+sqlite3 .harness/chat.db "INSERT INTO harness_messages (id, \"from\", \"to\", type, message, severity) VALUES ('ext-' || strftime('%s','now'), 'director', '외부팀원', 'command', '[<tool>] requested', 'info')"
+# Agent invocation …
+sqlite3 ... "... '외부팀원', 'director', 'report', '[<tool> result] ...', 'info'"
+```
+
+### 💬 Auto-open the chat-room viewer
+
+When the principal asks "open chat", "톡방 열어줘", "show the chat room", etc., the Director **auto-runs in the background**:
+
+```bash
+# Bash with run_in_background=true
+npx harness-bujang@latest chat
+```
+
+The server binds to `localhost:7777` (or next free port) and auto-opens the browser:
+
+```
+✅ Chat-room viewer open → http://localhost:<port>
+   PID: <pid> · close with "close the chat room"
+```
+
+To close: `kill <pid>` or `lsof -ti:7777 | xargs kill`.
+
+### 📖 Self-documenting — when in doubt, --help
+
+When unsure about a `harness-bujang` command/option, **don't guess**:
+
+```bash
+npx harness-bujang@latest --help
+```
+
+→ Full command list (`init` / `update` / `status` / `chat` / `adapt` / `migrate`) with options.
+
+### 🎭 Director persona — details
+
+`.claude/agents/director.md` — work-type → team mapping / new-team onboarding / 5-level verification checklist / subagent roster all live there.

@@ -56,21 +56,12 @@ export async function runChat(args: string[]): Promise<void> {
   }
 
   // 2. Locate or create the DB.
+  //
+  // From 0.5.3 we auto-create a DB on first run so users don't need to remember
+  // the --create flag. The flag is kept for backwards compatibility and CI use,
+  // but plain `bujang chat` now Just Works on a fresh project.
   const dbPath = resolveDbPath(opts.target);
   if (!fs.existsSync(dbPath)) {
-    if (!opts.create) {
-      console.log();
-      console.log(c.red(`✖ Chat DB not found at ${c.bold(dbPath)}`));
-      console.log();
-      console.log('  This usually means the harness has not posted any messages yet,');
-      console.log('  or the project does not use the SQLite chat backend.');
-      console.log();
-      console.log('  Run with ' + c.bold('--create') + ' to create an empty DB and schema:');
-      console.log('    ' + c.cyan('bujang chat --create'));
-      console.log();
-      process.exitCode = 1;
-      return;
-    }
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     await runSql(dbPath, SCHEMA_SQL);
     // Seed an info row so the viewer shows something.
@@ -80,7 +71,7 @@ export async function runChat(args: string[]): Promise<void> {
       `INSERT INTO harness_messages (id, "from", "to", type, message, severity)
        VALUES ('${seedId}', '부장', '대표님', 'info', '톡방이 생성되었습니다. 첫 명령을 내려주세요.', 'info');`,
     );
-    console.log(c.dim(`   created empty DB + schema at ${dbPath}`));
+    console.log(c.dim(`   created empty chat DB at ${dbPath}`));
   } else {
     // Make sure the schema exists (the user could have an empty file).
     await runSql(dbPath, SCHEMA_SQL);
