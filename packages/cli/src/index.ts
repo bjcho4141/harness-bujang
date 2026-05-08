@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { runInit } from './init.js';
-import { runStatus } from './status.js';
-import { runMigrate } from './migrate.js';
-import { runChat } from './chat.js';
-import { runAdapt } from './adapt.js';
-import { runUpdate } from './update.js';
+// Each `run*` command is loaded via dynamic import inside the dispatcher
+// below. The reason: chat.ts statically imports better-sqlite3 (a native
+// addon). If that native binding fails to load on a user's machine — e.g.
+// missing prebuild for their CPU arch, locked path with non-ASCII chars
+// on Windows — a top-level import in index.ts would crash the process
+// before *any* command (even `init`) prints a single byte. Lazy-loading
+// keeps init/status/adapt/update/migrate completely free of that risk.
 
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -99,26 +100,26 @@ async function main() {
 
   switch (command) {
     case 'init':
-      await runInit(args.slice(1));
+      await (await import('./init.js')).runInit(args.slice(1));
       break;
     case 'status':
-      await runStatus(args.slice(1));
+      await (await import('./status.js')).runStatus(args.slice(1));
       break;
     case 'chat':
-      await runChat(args.slice(1));
+      await (await import('./chat.js')).runChat(args.slice(1));
       break;
     case 'adapt':
-      await runAdapt(args.slice(1));
+      await (await import('./adapt.js')).runAdapt(args.slice(1));
       break;
     case 'update':
-      await runUpdate(args.slice(1));
+      await (await import('./update.js')).runUpdate(args.slice(1));
       break;
     case 'migrate':
-      await runMigrate(args.slice(1));
+      await (await import('./migrate.js')).runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':
-      console.log('0.5.6');
+      console.log('0.5.9');
       break;
     case '--help':
     case '-h':

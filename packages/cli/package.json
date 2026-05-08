@@ -1,6 +1,6 @@
 {
   "name": "harness-bujang",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 7 specialist teams, real-time chat-room UI. Korean and English personas. Works with Claude Code, Cursor, Cline, Aider, or any tool that reads .claude/agents/.",
   "keywords": [
     "claude-code",
