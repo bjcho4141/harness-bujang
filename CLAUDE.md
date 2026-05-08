@@ -84,7 +84,8 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.5.0 → 0.5.1: **공동대표 페르소나** + **외부팀원 톡방** + **사전 동의 프로토콜** + PRD/사업계획 매핑 4행 추가. 부장은 사내 16팀만 호출, 외부 도구는 외부팀원 톡방에 로깅.
   - 0.5.1 → 0.5.2: **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드리고 신규 파일만 추가. 사용자 커스텀 100% 보존. sandbox-test 에 update 회귀 검증.
   - 0.5.2 → 0.5.6: 0.5.3~0.5.6 — chat 첫 실행 시 자동 DB 생성, 톡방 사이드바 스크롤 튕김, 부장→대표님 라우팅 등 패치 6개
-  - 0.5.6 → **0.5.7**: **`bujang chat` Windows zero-install** — system sqlite3 CLI shell-out → better-sqlite3 (네이티브 prebuild). 윈도우/맥/리눅스 모두 `npx harness-bujang chat` 한 줄로 동작. 매 쿼리 process spawn 비용도 사라짐.
+  - 0.5.6 → 0.5.7: **`bujang chat` better-sqlite3 마이그레이션** — system sqlite3 CLI shell-out → better-sqlite3 (네이티브 prebuild). 매 쿼리 process spawn 비용 제거. (단 0.5.7 에는 윈도우 브라우저 자동열기 버그 잔존)
+  - 0.5.7 → **0.5.8**: **윈도우에서 톡방 안 열리던 버그 픽스** — `openBrowser()` 가 `spawn('start', ...)` 으로 cmd builtin 을 직접 부르다 비동기 ENOENT 로 톡방 프로세스 자체가 죽던 문제. `cmd /c start "" <url>` 우회 + `child.on('error')` 핸들러 추가. 윈도우 zero-install 이 진짜로 동작.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
