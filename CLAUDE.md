@@ -82,7 +82,9 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.4.3 → 0.4.4: 톡방 viewer "전체/안읽음" 카톡 스타일 필터
   - 0.4.4 → 0.5.0: **콘텐츠 제작 7팀 추가** (research / analysis / script / image / voice / edit / content-qa) — 코드 9팀과 함께 총 16팀. utube-start 도메인 흡수.
   - 0.5.0 → 0.5.1: **공동대표 페르소나** + **외부팀원 톡방** + **사전 동의 프로토콜** + PRD/사업계획 매핑 4행 추가. 부장은 사내 16팀만 호출, 외부 도구는 외부팀원 톡방에 로깅.
-  - 0.5.1 → **0.5.2**: **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드리고 신규 파일만 추가. 사용자 커스텀 100% 보존. sandbox-test 에 update 회귀 검증.
+  - 0.5.1 → 0.5.2: **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드리고 신규 파일만 추가. 사용자 커스텀 100% 보존. sandbox-test 에 update 회귀 검증.
+  - 0.5.2 → 0.5.6: 0.5.3~0.5.6 — chat 첫 실행 시 자동 DB 생성, 톡방 사이드바 스크롤 튕김, 부장→대표님 라우팅 등 패치 6개
+  - 0.5.6 → **0.5.7**: **`bujang chat` Windows zero-install** — system sqlite3 CLI shell-out → better-sqlite3 (네이티브 prebuild). 윈도우/맥/리눅스 모두 `npx harness-bujang chat` 한 줄로 동작. 매 쿼리 process spawn 비용도 사라짐.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
@@ -198,8 +200,7 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 ## 알려진 한계
 
 - **plugin.json 공식 spec 미검증** — Claude Code Plugin 공식 문서 spec과 정확히 맞는지 확인 필요. 기본 메타데이터는 올바르게 설정됨
-- **better-sqlite3 native 의존성** — Next.js 톡방 UI 사용 시 사용자 프로젝트에서 `npm i better-sqlite3` 필요 (CLI dependencies에는 박지 않음). `bujang chat` 은 system sqlite3 CLI를 shell-out 하므로 better-sqlite3 불필요
-- **`bujang chat` Windows 미검증** — system `sqlite3.exe` 설치 + PATH 등록 시 동작해야 하나 실제 검증 미실시
+- **better-sqlite3 native 의존성 (Next.js 톡방 UI 한정)** — `packages/template/` 의 Next.js 라우트에서 톡방을 띄울 때만 사용자 프로젝트에 `npm i better-sqlite3` 필요. `bujang chat` 은 0.5.7 부터 CLI 자체가 better-sqlite3 를 의존성으로 박고 있어 별도 설치 불필요 (윈도우 포함 zero-install)
 
 ## 빠른 검증 (다음 세션 시작할 때)
 

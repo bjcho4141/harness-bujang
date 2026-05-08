@@ -30,3 +30,6 @@ coverage/
 # Local sandbox
 playground/
 scratch/
+
+# Claude Code agent worktrees (ephemeral) — match at any depth
+**/.claude/worktrees/

@@ -1,24 +1,20 @@
 // `bujang chat` — standalone KakaoTalk-style chat-room viewer.
 //
-// Reads `<target>/.harness/chat.db` directly via the system `sqlite3` CLI,
-// serves a single-page vanilla HTML viewer on http://localhost:<port>, and
-// auto-opens the browser. No Next.js or framework dependency required.
+// Reads `<target>/.harness/chat.db` directly via better-sqlite3, serves a
+// single-page vanilla HTML viewer on http://localhost:<port>, and auto-opens
+// the browser. No Next.js or framework dependency required.
 //
-// Why shell out to the `sqlite3` CLI instead of `better-sqlite3`?
-//   - better-sqlite3 is a native module, hard to bundle in a CLI tarball.
-//   - sql.js (pure WASM) is ~700KB and slower for read-heavy polling.
-//   - The system `sqlite3` CLI is preinstalled on macOS and most Linux.
-//
-// On Windows or systems without sqlite3, we print a clear error with the
-// install command.
+// 0.5.7: switched from system `sqlite3` CLI shell-out to better-sqlite3.
+// Prebuilt .node binaries cover macOS (x64+arm64), Windows x64, and Linux
+// (x64+arm64) on Node LTS — so `npx harness-bujang chat` works zero-install
+// on Windows too. Real OS-level file locking is preserved for safe concurrent
+// writes from Director (Claude Code) + viewer.
 
 import * as http from 'node:http';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { execFile, spawn } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execFileP = promisify(execFile);
+import { spawn } from 'node:child_process';
+import Database from 'better-sqlite3';
 
 const c = {
   bold:   (s: string) => `\x1b[1m${s}\x1b[22m`,
@@ -39,43 +35,45 @@ interface ChatOptions {
 export async function runChat(args: string[]): Promise<void> {
   const opts = parseArgs(args);
 
-  // 1. Verify sqlite3 CLI is available.
+  // 1. Locate or create the DB. better-sqlite3 opens (and creates if missing)
+  // the file synchronously — no separate "is sqlite3 installed?" probe needed.
+  const dbPath = resolveDbPath(opts.target);
+  const dbIsNew = !fs.existsSync(dbPath);
+  if (dbIsNew) fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+  let db: Database.Database;
   try {
-    await execFileP('sqlite3', ['--version']);
-  } catch {
+    db = new Database(dbPath);
+  } catch (err) {
     console.log();
-    console.log(c.red('✖ The `sqlite3` command-line tool is required for `bujang chat`.'));
+    console.log(c.red('✖ Failed to open chat DB at ' + dbPath));
+    console.log('  ' + c.dim(String(err)));
     console.log();
-    console.log('  macOS:        already installed');
-    console.log('  Ubuntu/WSL:   ' + c.bold('sudo apt-get install sqlite3'));
-    console.log('  Fedora:       ' + c.bold('sudo dnf install sqlite'));
-    console.log('  Windows:      https://www.sqlite.org/download.html (sqlite-tools-win-x64)');
+    console.log('  This usually means better-sqlite3 could not load its native binding.');
+    console.log('  Try ' + c.bold('npm i -g harness-bujang@latest') + ' to fetch a fresh prebuild.');
     console.log();
     process.exitCode = 1;
     return;
   }
+  // WAL gives concurrent readers a consistent snapshot while Director writes.
+  db.pragma('journal_mode = WAL');
+  db.exec(SCHEMA_SQL);
 
-  // 2. Locate or create the DB.
-  //
-  // From 0.5.3 we auto-create a DB on first run so users don't need to remember
-  // the --create flag. The flag is kept for backwards compatibility and CI use,
-  // but plain `bujang chat` now Just Works on a fresh project.
-  const dbPath = resolveDbPath(opts.target);
-  if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    await runSql(dbPath, SCHEMA_SQL);
-    // Seed an info row so the viewer shows something.
+  if (dbIsNew) {
     const seedId = `seed-${Date.now()}`;
-    await runSql(
-      dbPath,
+    db.prepare(
       `INSERT INTO harness_messages (id, "from", "to", type, message, severity)
-       VALUES ('${seedId}', '부장', '대표님', 'info', '톡방이 생성되었습니다. 첫 명령을 내려주세요.', 'info');`,
-    );
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(seedId, '부장', '대표님', 'info', '톡방이 생성되었습니다. 첫 명령을 내려주세요.', 'info');
     console.log(c.dim(`   created empty chat DB at ${dbPath}`));
-  } else {
-    // Make sure the schema exists (the user could have an empty file).
-    await runSql(dbPath, SCHEMA_SQL);
   }
+
+  // 2. Prepare hot-path statements once. POST handler reuses insertStmt for
+  // every message — preparing inside the handler would re-parse SQL each call.
+  const insertStmt = db.prepare(
+    `INSERT INTO harness_messages (id, "from", "to", type, message, severity)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
 
   // 3. Boot the HTTP server.
   const port = await findOpenPort(opts.port);
@@ -91,7 +89,7 @@ export async function runChat(args: string[]): Promise<void> {
     if (req.method === 'GET' && url.pathname === '/api/messages') {
       const days = parseInt(url.searchParams.get('days') ?? '7', 10);
       try {
-        const rows = await readMessages(dbPath, days);
+        const rows = readMessages(db, days);
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ data: rows }));
       } catch (err) {
@@ -122,11 +120,7 @@ export async function runChat(args: string[]): Promise<void> {
           res.end(JSON.stringify({ error: 'message is required' }));
           return;
         }
-        await runSql(
-          dbPath,
-          `INSERT INTO harness_messages (id, "from", "to", type, message, severity)
-           VALUES (${q(id)}, ${q(from)}, ${q(to)}, ${q(type)}, ${q(message)}, ${q(severity)});`,
-        );
+        insertStmt.run(id, from, to, type, message, severity);
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ data: { id } }));
       } catch (err) {
@@ -158,6 +152,7 @@ export async function runChat(args: string[]): Promise<void> {
     console.log();
     console.log(c.dim('   bye 👋'));
     server.close();
+    db.close();
     process.exit(0);
   });
 }
@@ -217,16 +212,20 @@ function portIsFree(port: number): Promise<boolean> {
 }
 
 function openBrowser(url: string): void {
+  // On Windows, `start` is a cmd.exe builtin (not a .exe) — spawning it
+  // directly raises an async ENOENT 'error' event that bypasses try/catch
+  // and crashes the whole node process, taking the chat server with it.
+  // Route through `cmd /c start ""` (empty title arg avoids start treating
+  // a quoted URL as the window title).
   const platform = process.platform;
-  const cmd =
-    platform === 'darwin' ? 'open'
-    : platform === 'win32' ? 'start'
-    : 'xdg-open';
-  try {
-    spawn(cmd, [url], { detached: true, stdio: 'ignore' }).unref();
-  } catch {
-    // best-effort — user can click the URL
-  }
+  const child =
+    platform === 'darwin'
+      ? spawn('open', [url], { detached: true, stdio: 'ignore' })
+    : platform === 'win32'
+      ? spawn('cmd', ['/c', 'start', '""', url], { detached: true, stdio: 'ignore' })
+    : spawn('xdg-open', [url], { detached: true, stdio: 'ignore' });
+  child.on('error', () => { /* best-effort — user can click the URL */ });
+  child.unref();
 }
 
 function readBody(req: http.IncomingMessage): Promise<string> {
@@ -248,18 +247,17 @@ interface MessageRow {
   severity: string | null;
 }
 
-async function readMessages(dbPath: string, days: number): Promise<MessageRow[]> {
-  const sql = `
-    SELECT id, timestamp, "from" AS sender, "to" AS recipient, type, message, severity
-    FROM harness_messages
-    WHERE timestamp >= datetime('now', '-${Math.max(1, days | 0)} day')
-    ORDER BY timestamp ASC;
-  `;
-  const { stdout } = await execFileP('sqlite3', ['-json', dbPath, sql], {
-    maxBuffer: 32 * 1024 * 1024,
-  });
-  if (!stdout.trim()) return [];
-  const raw = JSON.parse(stdout) as Array<{
+function readMessages(db: Database.Database, days: number): MessageRow[] {
+  // Days is bounded to a positive integer before binding — `datetime` modifier
+  // strings can't be parameterized, so we coerce defensively and inline.
+  const safeDays = Math.max(1, days | 0);
+  const stmt = db.prepare(
+    `SELECT id, timestamp, "from" AS sender, "to" AS recipient, type, message, severity
+     FROM harness_messages
+     WHERE timestamp >= datetime('now', '-' || ? || ' day')
+     ORDER BY timestamp ASC`,
+  );
+  const raw = stmt.all(safeDays) as Array<{
     id: string;
     timestamp: string;
     sender: string;
@@ -277,15 +275,6 @@ async function readMessages(dbPath: string, days: number): Promise<MessageRow[]>
     message: r.message,
     severity: r.severity,
   }));
-}
-
-async function runSql(dbPath: string, sql: string): Promise<void> {
-  await execFileP('sqlite3', [dbPath, sql], { maxBuffer: 1024 * 1024 });
-}
-
-function q(value: string): string {
-  // SQL string literal escaping for sqlite3 CLI input.
-  return `'${value.replace(/'/g, "''")}'`;
 }
 
 const SCHEMA_SQL = `
