@@ -112,12 +112,34 @@ assert_file "$SANDBOX/.claude/agents/cofounder.md"
 assert_file "$SANDBOX/CLAUDE.md"
 assert_file "$SANDBOX/docs/AGENT_LEARNING_LOG.md"
 
-# Korean content check
+# Korean persona name check (전 hybrid + post-hybrid 양쪽 호환)
 if grep -q "부장" "$SANDBOX/.claude/agents/director.md"; then
-  green "  ✓ director.md contains '부장' (Korean)"
+  green "  ✓ director.md contains '부장' (Korean persona name preserved)"
 else
   red "  ✖ director.md does NOT contain '부장' — Korean install failed"
   exit 1
+fi
+
+# 0.7.0 hybrid pattern check: instructions in English, Korean phrasing in body
+# Director should now have English section headers AND Korean speech examples.
+if grep -q "## 🚨 Chat-room INSERT" "$SANDBOX/.claude/agents/director.md" \
+   || grep -q "## Identity" "$SANDBOX/.claude/agents/director.md"; then
+  green "  ✓ director.md instructions in English (0.7.0 hybrid)"
+else
+  yellow "  ⚠  director.md missing expected English section headers (pre-0.7.0 install?)"
+fi
+if grep -q "완료했습니다" "$SANDBOX/.claude/agents/director.md" \
+   && grep -q "판단 부탁드립니다" "$SANDBOX/.claude/agents/director.md"; then
+  green "  ✓ director.md report-format Korean phrasing preserved (완료/판단 부탁드립니다)"
+else
+  yellow "  ⚠  director.md missing Korean report phrasing (pre-0.7.0 install?)"
+fi
+# dev-team should have English working principles + Korean fragment in INSERT example
+if grep -q "Working principles" "$SANDBOX/.claude/agents/dev-team.md" \
+   && grep -q "작업 완료" "$SANDBOX/.claude/agents/dev-team.md"; then
+  green "  ✓ dev-team.md hybrid pattern OK (English instructions + Korean INSERT body)"
+else
+  yellow "  ⚠  dev-team.md hybrid pattern not detected"
 fi
 
 # ---------------------------------------------------------------------------
