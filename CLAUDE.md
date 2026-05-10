@@ -69,12 +69,12 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.6.2` 라이브 (2026-05-10). https://www.npmjs.com/package/harness-bujang
+- [x] **npm publish** — `harness-bujang@0.7.0` 라이브 (2026-05-10). https://www.npmjs.com/package/harness-bujang
   - 0.4.0 → 0.5.10 까지 11개 패치 한 번에 publish (Touch ID 1번)
   - 0.6.0 — multi-tool init + per-agent 모델 매핑 (Touch ID 1번 추가)
   - 0.6.1 — 톡방 read-state SQLite 화 (포트 변경에도 unread 카운트 유지)
   - 0.6.2 — `--help` 한국어 디폴트 + `--help-en` 영어 유지
-  - **0.7.0 publish 대기** — 에이전트 .md 하이브리드 변환 (instructions 영어, 톡방 발화 한국어 유지). 부장님 Touch ID 필요.
+  - 0.7.0 — 에이전트 .md 하이브리드 변환 (instructions 영어, 부장 발화 한국어 유지) — 토큰 ~30~40% 절감
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
