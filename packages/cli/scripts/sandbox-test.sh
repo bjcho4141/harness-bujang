@@ -156,7 +156,49 @@ echo "$HTML_HEAD" | grep -q "<!DOCTYPE html>" || {
 }
 green "  ✓ GET / returns HTML"
 
+# 3e. 0.6.1: read-state lifecycle — GET (empty) → POST → GET (persists)
+EMPTY_STATE="$(curl -s "http://localhost:$PORT/api/read-state")"
+echo "$EMPTY_STATE" | grep -q '"data":{}' || {
+  red "  ✖ first GET /api/read-state should return empty data, got: $EMPTY_STATE"
+  exit 1
+}
+green "  ✓ GET /api/read-state empty initially"
+
+curl -s -X POST "http://localhost:$PORT/api/read-state" \
+  -H 'content-type: application/json' \
+  -d '{"room":"dev-team","last_seen_at":"2026-05-10T08:00:00.000Z"}' > /dev/null
+AFTER_POST="$(curl -s "http://localhost:$PORT/api/read-state")"
+echo "$AFTER_POST" | grep -q "dev-team" || {
+  red "  ✖ POST /api/read-state did not persist, got: $AFTER_POST"
+  exit 1
+}
+green "  ✓ POST /api/read-state upserts"
+
 # Stop the chat server before continuing.
+kill "$CHAT_PID" 2>/dev/null || true
+wait "$CHAT_PID" 2>/dev/null || true
+unset CHAT_PID
+
+# 3f. 0.6.1: read state survives server restart on a DIFFERENT port. This is
+# the key scenario the user reported — `bujang chat` on a fresh port should
+# NOT show every old message as unread.
+PORT_B=$((PORT + 1))
+"${RUN[@]}" chat --target="$SANDBOX" --port="$PORT_B" --no-open > /dev/null 2>&1 &
+CHAT_PID=$!
+for i in $(seq 1 25); do
+  if curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT_B/api/read-state" | grep -q '^200$'; then
+    break
+  fi
+  sleep 0.2
+done
+RESTART_STATE="$(curl -s "http://localhost:$PORT_B/api/read-state")"
+echo "$RESTART_STATE" | grep -q '"dev-team":"2026-05-10T08:00:00.000Z"' || {
+  red "  ✖ read state lost across server restart on a different port"
+  echo "  got: $RESTART_STATE"
+  exit 1
+}
+green "  ✓ read state survives server restart + port change (chat.db is SoT)"
+
 kill "$CHAT_PID" 2>/dev/null || true
 wait "$CHAT_PID" 2>/dev/null || true
 unset CHAT_PID

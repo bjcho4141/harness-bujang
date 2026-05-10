@@ -75,6 +75,21 @@ export async function runChat(args: string[]): Promise<void> {
      VALUES (?, ?, ?, ?, ?, ?)`,
   );
 
+  // 0.6.1: read-state statements
+  const readStateRowsStmt = db.prepare(
+    `SELECT room, last_seen_at FROM harness_read_state`,
+  );
+  const readStateUpsertStmt = db.prepare(
+    `INSERT INTO harness_read_state (room, last_seen_at, updated_at)
+     VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(room) DO UPDATE SET
+       last_seen_at = excluded.last_seen_at,
+       updated_at   = excluded.updated_at`,
+  );
+  // First-run auto-mark logic moved client-side (the browser knows the
+  // canonical ROOMS list with member arrays, so it can match messages to
+  // rooms with the same precedence rules as filterMessages()).
+
   // 3. Boot the HTTP server.
   const port = await findOpenPort(opts.port);
   const server = http.createServer(async (req, res) => {
@@ -123,6 +138,53 @@ export async function runChat(args: string[]): Promise<void> {
         insertStmt.run(id, from, to, type, message, severity);
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ data: { id } }));
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+      return;
+    }
+
+    // ---------------------------------------------------------------------
+    // 0.6.1: read-state endpoints
+    //
+    // GET  → all rooms' last_seen_at (chat.db is SoT, so survives port changes
+    //        / server restarts / different browsers).
+    // POST → upsert one room's marker.
+    //
+    // First-run auto-mark (so 0.6.0 → 0.6.1 upgrade users don't see every
+    // historical message as unread) is handled client-side — the browser
+    // knows the ROOMS list with its precedence rules and POSTs each room's
+    // current last-message timestamp on first load.
+    // ---------------------------------------------------------------------
+    if (req.method === 'GET' && url.pathname === '/api/read-state') {
+      try {
+        const rows = readStateRowsStmt.all() as Array<{ room: string; last_seen_at: string }>;
+        const map: Record<string, string> = {};
+        for (const r of rows) map[r.room] = r.last_seen_at;
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: map }));
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: {}, error: String(err) }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/read-state') {
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { room?: string; last_seen_at?: string };
+        const room = (parsed.room ?? '').trim();
+        const lastSeenAt = (parsed.last_seen_at ?? '').trim();
+        if (!room || !lastSeenAt) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ error: 'room and last_seen_at are required' }));
+          return;
+        }
+        readStateUpsertStmt.run(room, lastSeenAt);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ data: { room, last_seen_at: lastSeenAt } }));
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: String(err) }));
@@ -291,6 +353,14 @@ const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS harness_messages_timestamp_idx ON harness_messages(timestamp DESC);
   CREATE INDEX IF NOT EXISTS harness_messages_from_to_idx ON harness_messages("from", "to");
+
+  -- 0.6.1: per-room read marker (chat.db is the single source of truth, so
+  -- read state survives port changes / server restarts / browsers).
+  CREATE TABLE IF NOT EXISTS harness_read_state (
+    room          TEXT PRIMARY KEY,
+    last_seen_at  TEXT NOT NULL,
+    updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
 `;
 
 // ---------------------------------------------------------------------------
@@ -381,12 +451,16 @@ const ROOMS = [
   { id: '외부팀원',         name: '외부팀원',      icon: '🌐', members: ['부장', '외부팀원', '공동대표'] },
 ];
 
-const STORAGE_KEY = 'harness-bujang-read';
 const FILTER_KEY = 'harness-bujang-filter';
+// 0.6.1: Read state moved server-side (chat.db harness_read_state table) so
+// it survives port changes / server restarts / different browsers. The
+// localStorage 'harness-bujang-read' key from 0.5.x–0.6.0 is now ignored
+// (no migration needed — server first-run auto-marks current state as read).
 const state = {
   messages: [],
   selectedRoom: null,
-  readCounts: JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'),
+  /** room id → last_seen_at ISO timestamp. Populated by GET /api/read-state. */
+  readByRoom: {},
   filter: localStorage.getItem(FILTER_KEY) || 'all',  // 'all' | 'unread'
   loading: true,
 };
@@ -465,11 +539,16 @@ function render() {
   const infos    = state.messages.filter((m) => m.severity === 'info').length;
 
   // Pre-compute unread per room (for the filter button + badges).
+  // 0.6.1: count messages newer than the per-room last_seen_at marker
+  // returned by the server. Survives port changes / server restarts.
   const unreadByRoom = {};
   let totalUnread = 0;
   for (const room of ROOMS) {
-    const count = filterMessages(state.messages, room.id).length;
-    const unread = Math.max(0, count - (state.readCounts[room.id] || 0));
+    const roomMsgs = filterMessages(state.messages, room.id);
+    const lastSeen = state.readByRoom[room.id];
+    const unread = lastSeen
+      ? roomMsgs.filter((m) => m.timestamp > lastSeen).length
+      : roomMsgs.length;
     unreadByRoom[room.id] = unread;
     totalUnread += unread;
   }
@@ -620,12 +699,24 @@ function render() {
   });
 
   // Re-bind room-click handlers (room list).
+  // 0.6.1: persist read marker via POST /api/read-state (server is SoT) and
+  // also update the in-memory map so the badge clears immediately without
+  // waiting for the next 2s poll.
   document.querySelectorAll('[data-room-id]').forEach((el) => {
     el.addEventListener('click', () => {
-      state.selectedRoom = el.getAttribute('data-room-id');
-      const count = filterMessages(state.messages, state.selectedRoom).length;
-      state.readCounts[state.selectedRoom] = count;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.readCounts));
+      const roomId = el.getAttribute('data-room-id');
+      state.selectedRoom = roomId;
+      const last = getLastMessage(state.messages, roomId);
+      if (last) {
+        state.readByRoom[roomId] = last.timestamp;
+        // Fire-and-forget; if it fails the next 2s poll re-syncs from the
+        // server. We don't block the UI on the round-trip.
+        fetch('/api/read-state', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ room: roomId, last_seen_at: last.timestamp }),
+        }).catch(() => {});
+      }
       render();
       const conv = document.getElementById('conversation');
       if (conv) conv.scrollTop = conv.scrollHeight;
@@ -651,9 +742,15 @@ function render() {
 
 async function refresh() {
   try {
-    const res = await fetch('/api/messages?days=14');
-    const json = await res.json();
-    state.messages = (json.data || []).map((m) => ({
+    // 0.6.1: fetch messages + read-state in parallel. chat.db is SoT for
+    // read state, so port/server/browser changes don't reset it.
+    const [msgRes, readRes] = await Promise.all([
+      fetch('/api/messages?days=14'),
+      fetch('/api/read-state'),
+    ]);
+    const msgJson = await msgRes.json();
+    const readJson = await readRes.json();
+    state.messages = (msgJson.data || []).map((m) => ({
       id: m.id,
       timestamp: m.timestamp,
       from: m.from,
@@ -662,6 +759,32 @@ async function refresh() {
       message: m.message,
       severity: m.severity || undefined,
     }));
+    state.readByRoom = readJson.data || {};
+
+    // First-run auto-mark: if the server returned an empty read-state but we
+    // have messages, this is a fresh upgrade from 0.6.0. Mark every room's
+    // current last message as read so the user only sees genuinely-new
+    // messages flagged unread from here on.
+    if (
+      Object.keys(state.readByRoom).length === 0 &&
+      state.messages.length > 0
+    ) {
+      const initial = {};
+      for (const room of ROOMS) {
+        const last = getLastMessage(state.messages, room.id);
+        if (last) initial[room.id] = last.timestamp;
+      }
+      state.readByRoom = initial;
+      // Persist to server (fire-and-forget per room — small N, ~18 calls).
+      for (const [room, ts] of Object.entries(initial)) {
+        fetch('/api/read-state', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ room, last_seen_at: ts }),
+        }).catch(() => {});
+      }
+    }
+
     state.loading = false;
     render();
   } catch (e) {
