@@ -165,7 +165,7 @@ export async function runInit(args: string[]): Promise<void> {
       // would see all files skipped — their selection silently ignored.
       if (await isExistingInstall(opts.target)) {
         const overwrite = await confirm({
-          message: 'Existing harness install detected. Overwrite all files to apply your selections?',
+          message: '기존 하네스 설치가 감지되었습니다. 선택한 설정을 적용하기 위해 모든 파일을 덮어쓸까요?',
           default: false,
         });
         if (overwrite) opts.yes = true;
@@ -192,7 +192,7 @@ export async function runInit(args: string[]): Promise<void> {
 
   if (interactive) {
     try {
-      const proceed = await confirm({ message: 'Proceed with these settings?', default: true });
+      const proceed = await confirm({ message: '이 설정으로 진행할까요?', default: true });
       if (!proceed) {
         console.log(c.dim('   (aborted)'));
         return;
@@ -453,30 +453,31 @@ async function promptInteractive(
   scan: import('./scan.js').ScanResult,
 ): Promise<InitOptions> {
   const lang = (await select({
-    message: 'Agent language / 에이전트 언어',
+    message: '에이전트 언어 / Agent language',
     choices: [
-      { name: '한국어 — full 부장 persona (Korean)', value: 'ko' },
-      { name: 'English', value: 'en' },
+      { name: '한국어 — 부장 페르소나 풀 (Korean)', value: 'ko' },
+      { name: 'English — Director persona',         value: 'en' },
     ],
     default: opts.lang,
   })) as 'en' | 'ko';
 
   const chatBackend = (await select({
-    message: 'Chat backend',
+    message: '톡방 백엔드',
     choices: [
-      { name: 'SQLite — local file, zero setup (recommended)', value: 'sqlite' },
-      { name: 'Supabase — cloud Postgres for team sharing', value: 'supabase' },
+      { name: 'SQLite — 로컬 파일, 셋업 불필요 (추천)',  value: 'sqlite'   },
+      { name: 'Supabase — 클라우드 Postgres (팀 공유용)', value: 'supabase' },
     ],
     default: opts.chatBackend,
   })) as ChatBackend;
 
-  // Tool adapters — Claude Code is always installed; this fans out to others.
-  // Pre-check anything the user passed via --tools.
+  // Tool adapters — Claude Code is always installed (SoT). The choice list
+  // includes a disabled "Claude Code" row so the user can SEE it's already in.
+  // We strip the 'claude' value from the result before returning.
   const isPreset = (t: AdapterTarget) => opts.adapters.includes(t);
-  const adapters = (await checkbox({
-    message:
-      'Extra tool adapters? (Claude Code is always installed at .claude/agents/ — these add files for OTHER tools)',
+  const adaptersRaw = (await checkbox({
+    message: '도구 선택 — Claude Code 는 자동 설치 (필수). 추가 도구 없으면 그냥 Enter.',
     choices: [
+      { name: 'Claude Code     (.claude/agents/) — 자동 설치 (필수)',         value: 'claude', checked: true, disabled: '(자동)' },
       { name: 'Cursor          (.cursor/rules/bujang-*.mdc)',                value: 'cursor', checked: isPreset('cursor') },
       { name: 'Codex / Copilot (AGENTS.md)',                                  value: 'codex',  checked: isPreset('codex')  },
       { name: 'Cline           (.clinerules/bujang-*.md)',                    value: 'cline',  checked: isPreset('cline')  },
@@ -484,19 +485,21 @@ async function promptInteractive(
       { name: 'Gemini / Antigravity (GEMINI.md + .gemini/styleguide.md)',     value: 'gemini', checked: isPreset('gemini') },
     ],
     required: false,
-  })) as AdapterTarget[];
+  })) as Array<AdapterTarget | 'claude'>;
+  // Drop the 'claude' sentinel — Claude Code is always installed regardless.
+  const adapters = adaptersRaw.filter((t): t is AdapterTarget => t !== 'claude');
 
   // Model mapping — only meaningful for Claude Code (other tools pick their own
   // model inside their UI). Show the prompt anyway since Claude Code is always
   // installed.
   const preset = (await select({
-    message: 'Per-agent Claude model? (only affects .claude/agents/ — other tools manage models themselves)',
+    message: '에이전트별 Claude 모델? (.claude/agents/ 에만 적용 — 다른 도구는 자체 모델 관리)',
     choices: [
-      { name: 'balanced — opus / sonnet / haiku mix (recommended, ~60% cost cut)', value: 'balanced' },
-      { name: 'keep     — leave each agent\'s default model untouched',            value: 'keep'     },
-      { name: 'cost     — all haiku (cheapest, fastest)',                          value: 'cost'     },
-      { name: 'quality  — all opus (most expensive, highest quality)',             value: 'quality'  },
-      { name: 'custom   — pick model per agent (18 prompts)',                      value: 'custom'   },
+      { name: 'balanced — opus / sonnet / haiku 균형 매핑 (추천, 비용 ~60% 절감)', value: 'balanced' },
+      { name: 'keep     — 각 에이전트 기본 모델 그대로',                            value: 'keep'     },
+      { name: 'cost     — 전부 haiku (가장 저렴, 빠름)',                            value: 'cost'     },
+      { name: 'quality  — 전부 opus (가장 비싸고, 품질 최상)',                       value: 'quality'  },
+      { name: 'custom   — 에이전트별 직접 선택 (18개 prompt)',                      value: 'custom'   },
     ],
     default: 'balanced',
   })) as ModelPreset;
@@ -511,7 +514,7 @@ async function promptInteractive(
   let installTemplate = opts.installTemplate;
   if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
     installTemplate = await confirm({
-      message: 'Install chat-room UI (Next.js admin route at /admin/harness)?',
+      message: '톡방 UI 설치? (Next.js admin 라우트 /admin/harness)',
       default: true,
     });
   }
@@ -523,14 +526,14 @@ async function promptCustomModelMap(): Promise<Record<string, ModelTier>> {
   const out: Record<string, ModelTier> = {};
   const slugs = Object.keys(BALANCED_MAPPING);
   console.log();
-  console.log(c.dim(`   Custom mapping — pick a model for each of ${slugs.length} agents.`));
+  console.log(c.dim(`   Custom 매핑 — ${slugs.length}개 에이전트마다 모델을 선택해주세요.`));
   for (const slug of slugs) {
     const tier = (await select({
       message: `${slug.padEnd(20)}`,
       choices: [
-        { name: 'opus   (heaviest, smartest)',        value: 'opus'   },
-        { name: 'sonnet (balanced)',                  value: 'sonnet' },
-        { name: 'haiku  (lightest, fastest, cheap)',  value: 'haiku'  },
+        { name: 'opus   (가장 똑똑, 비싼)',        value: 'opus'   },
+        { name: 'sonnet (균형)',                   value: 'sonnet' },
+        { name: 'haiku  (가장 빠르고 저렴)',         value: 'haiku'  },
       ],
       default: BALANCED_MAPPING[slug] ?? 'sonnet',
     })) as ModelTier;

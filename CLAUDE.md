@@ -76,7 +76,7 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.6.2 — `--help` 한국어 디폴트 + `--help-en` 영어 유지
   - 0.7.0 — 에이전트 .md 하이브리드 변환 (instructions 영어, 부장 발화 한국어 유지) — 토큰 ~30~40% 절감
   - 0.7.1 — README + CLAUDE.md 0.5.3 → 0.7.0 동기화 (docs only)
-  - **하루 6번 publish 기록** — 2026-05-10 단일 세션 0.5.10 → 0.7.1
+  - **0.7.2 publish 대기** — 인터랙티브 prompt 7개 한국어 통일 + 도구 선택 checkbox 에 Claude Code disabled 항목 추가 (시각적 명확화)
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
