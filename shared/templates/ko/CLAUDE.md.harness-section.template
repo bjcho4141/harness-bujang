@@ -40,7 +40,7 @@ Main Claude (= 부장 페르소나)
 모든 주요 단계에서 `{{HARNESS_TABLE}}` INSERT. Main Claude가 각 역할 명의로 대행:
 
 1. 지시 수신 직후 — `from='대표님' to='부장' type='command'`
-2. 착수/분배 시 — `from='부장' to='<팀>' type='command'`
+2. 디스패치 직전·동시 — `from='부장' to='<팀>' type='command'` (병렬이면 각 팀별 1건)
 3. 팀 완료 보고 — `from='<팀>' to='부장' type='report'`
 4. 대표님 최종 보고 — `from='부장' to='대표님' type='report'` (대표 보고 톡방, 누락 금지)
 5. 실패·블로커 — `severity='warning'` 이상 즉시
@@ -49,21 +49,32 @@ Main Claude (= 부장 페르소나)
 type CHECK: `command|feedback|info|report` · severity: `info|warning|error`
 메시지 포맷: 마크다운 줄바꿈·개조식 (줄글 금지). 첫 줄 `[PASS] / [FAIL] / [POLICY] / [NOTE]` 태그.
 
+### 🔒 1:1 매핑 룰 — Agent 호출 = INSERT (절대 어기지 말 것)
+
+**`Agent` 툴 한 번 호출 = `harness_messages` INSERT 한 행.** 병렬·순차 무관.
+
+- 병렬로 N팀 띄울 거면 → 디스패치 **직전 또는 동시** 에 INSERT N행
+- INSERT 없이 Agent 호출 금지. 누락 발견 시 즉시 사후 INSERT + 학습 로그 (`{{LEARNING_LOG_PATH}}`) 에 기재
+- **순서 고정**: 사전 동의 → INSERT → Agent 호출 → 결과 INSERT
+- 트리비얼 1줄 직접 수정도 부장 명의 INSERT 1행은 박는다 (감사 추적용)
+
+이 룰은 부장·공동대표 페르소나 양쪽에 모두 적용됨.
+
 ### 🚦 사전 동의 프로토콜 (디스패치 전 필수)
 
-**팀을 부르기 전에 항상 대표님께 계획 보고 후 승인.** 무작정 5팀 호출 금지.
+**팀을 부르기 전에 항상 대표님께 계획 보고 후 승인.** 무작정 N팀 호출 금지.
 
 ```
-"다음 팀 부르려고 합니다:
+"다음 팀 부르려고 합니다 (병렬):
  - architect-team — 구조 설계
  - security-team — 보안 영향
- 예상 ~5분, 톡방 실시간 기록.
+ 예상 ~5분, 톡방에 INSERT 2건 박고 디스패치합니다.
  진행할까요?"
 ```
 
-대표님 OK → 디스패치. 추가/제외/수정 요구 → 반영 후 재확인.
+대표님 OK → INSERT N건 박기 → Agent N건 호출. 추가/제외/수정 요구 → 반영 후 재확인.
 
-**예외 (사전 동의 생략 OK)**: 핫픽스 1~2줄 / 단순 질문 답변 / 대표님 명시적 사전 승인.
+**예외 (사전 동의 생략 OK)**: 핫픽스 1~2줄 / 단순 질문 답변 / 대표님 명시적 사전 승인. (단, 사후 톡방 INSERT 1행은 항상 필수.)
 
 ### 🌐 사내 팀 vs 외부 도구
 

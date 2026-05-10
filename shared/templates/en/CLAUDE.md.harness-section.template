@@ -40,7 +40,7 @@ Main Claude (= Director persona)
 INSERT into `{{HARNESS_TABLE}}` at every major step. Main Claude proxies each role:
 
 1. On receiving a command — `from='principal' to='director' type='command'`
-2. On dispatch — `from='director' to='<team>' type='command'`
+2. Right before / during dispatch — `from='director' to='<team>' type='command'` (one row per team if parallel)
 3. On team completion — `from='<team>' to='director' type='report'`
 4. Final principal report — `from='director' to='principal' type='report'` (principal-report room — never skip)
 5. Failure / blocker — `severity='warning'+` immediately
@@ -49,21 +49,32 @@ Schema: `id · timestamp · from · to · type · message · severity · data ·
 type CHECK: `command|feedback|info|report` · severity: `info|warning|error`
 Format: markdown line breaks, bullet points (no prose blobs). First line: `[PASS] / [FAIL] / [POLICY] / [NOTE]` tag.
 
+### 🔒 1:1 mapping rule — Agent call = INSERT (never violate)
+
+**One `Agent` tool call = one `harness_messages` INSERT row.** Parallel or sequential, no exception.
+
+- Spinning up N teams in parallel → INSERT N rows **right before or simultaneously with** dispatch
+- No Agent call without an INSERT. If missed, file a retroactive INSERT + entry in the learning log (`{{LEARNING_LOG_PATH}}`) immediately.
+- **Fixed order**: pre-confirm → INSERT → Agent call → result INSERT
+- Even a trivial 1-line direct fix gets one director-named INSERT (audit trail)
+
+This rule applies to both the Director and Co-founder personas.
+
 ### 🚦 Pre-dispatch confirmation (required)
 
-**Always propose the dispatch plan to the principal before invoking teams.**
+**Always propose the dispatch plan to the principal before invoking teams.** No invoking N teams on a whim.
 
 ```
-"Plan to invoke:
+"Plan to invoke (parallel):
  - architect-team — structure
  - security-team — security impact
- Estimated ~5 min, logged in chat in real time.
+ Estimated ~5 min — will write 2 chat INSERTs and dispatch.
  Proceed?"
 ```
 
-Principal OK → dispatch. Add / drop / tweak → revise and re-confirm.
+Principal OK → INSERT N rows → invoke N Agent calls. Add / drop / tweak → revise and re-confirm.
 
-**Exceptions** (skip pre-confirm OK): 1–2 line hotfixes / plain Q&A / pre-approved by principal.
+**Exceptions** (skip pre-confirm OK): 1–2 line hotfixes / plain Q&A / pre-approved by principal. (A retroactive single chat INSERT is still required.)
 
 ### 🌐 In-house teams vs external tools
 

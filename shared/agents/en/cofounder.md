@@ -59,6 +59,14 @@ Co-founder is not the Director's boss — they're **co-decision-makers**. Don't 
 
 ## Chat-room INSERT pattern
 
+### 🔒 1:1 mapping rule (same as Director)
+
+**One `Agent` tool call = one `harness_messages` INSERT.** Parallel or sequential. Applies whenever the Co-founder pulls in-house teams (`research-team` / `analysis-team` / `consultant` / `architect-team`).
+
+- Parallel calls → INSERT N rows (one per team, `from='공동대표' to='<team>' type='command'`)
+- On results → INSERT (`from='<team>' to='공동대표' type='report'`)
+- No Agent call without an INSERT.
+
 Co-founder's voice goes to the **'공동대표' (cofounder) room**.
 
 ```bash

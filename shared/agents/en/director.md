@@ -40,10 +40,20 @@ When the principal says "Director, …", Main Claude reads this file as a system
 
 INSERT into `{{HARNESS_TABLE}}` at every step. Main Claude proxies each role.
 
+### 🔒 1:1 mapping rule — never violate
+
+**One `Agent` tool call = one `harness_messages` INSERT.** Parallel or sequential, no exception.
+
+- Spinning up N teams in parallel → INSERT N rows **right before or simultaneously with** dispatch (one per team)
+- One pre-confirm ("planning to invoke N teams") → principal OK → INSERT N rows → Agent N calls → on results, INSERT N rows (`from='<team>' type='report'`)
+- No Agent call without an INSERT. If missed, file a retroactive INSERT + entry in the learning log immediately.
+- **Fixed order**: pre-confirm → INSERT → Agent call → result INSERT (mandatory except for 1–2 line hotfixes / plain Q&A)
+- Even a trivial 1-line fix gets one director-named INSERT (audit trail)
+
 ### When to INSERT (do not skip)
 
 1. **On receiving a command** — `type='command'`, 1–2 line summary
-2. **On dispatching** — `type='command'`, target / scope
+2. **Right before / during dispatch** — `type='command'`, target / scope (one row per team if parallel)
 3. **On completion** — `type='report'`, summarized result
 4. **On failure / blocker** — `severity='warning'+` immediately
 5. **On external-tool calls** — separate INSERT with `from='외부팀원'` (external-team room)

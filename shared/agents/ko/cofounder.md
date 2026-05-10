@@ -59,6 +59,14 @@ model: opus
 
 ## 톡방 INSERT 패턴
 
+### 🔒 1:1 매핑 룰 (부장과 동일)
+
+**Agent 툴 호출 1번 = 톡방 INSERT 1행.** 병렬·순차 무관. 공동대표가 사내 팀 (`research-team` / `analysis-team` / `consultant` / `architect-team`) 호출할 때도 동일 적용.
+
+- 병렬 호출 = INSERT N행 (각 팀별 1건, `from='공동대표' to='<팀>' type='command'`)
+- 결과 받으면 INSERT (`from='<팀>' to='공동대표' type='report'`)
+- INSERT 없이 Agent 호출 금지
+
 공동대표 발언은 **공동대표 톡방** (`'공동대표'`) 에 기록.
 
 ```bash

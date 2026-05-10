@@ -69,8 +69,8 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 ### ✅ 끝난 것
 
-- [x] **npm publish** — `harness-bujang@0.4.0` 라이브 (2026-05-05). https://www.npmjs.com/package/harness-bujang
-  - **0.5.1 publish 대기** — 0.4.1 ~ 0.5.1 까지 7개 패치 코드 푸시 완료, npm 라이브만 안 됨 (부장님이 한 번에 publish 예정)
+- [x] **npm publish** — `harness-bujang@0.5.10` 라이브 (2026-05-10). https://www.npmjs.com/package/harness-bujang
+  - 0.4.0 → 0.5.10 까지 11개 패치 한 번에 publish (Touch ID 1번)
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
@@ -86,49 +86,21 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.5.2 → 0.5.6: 0.5.3~0.5.6 — chat 첫 실행 시 자동 DB 생성, 톡방 사이드바 스크롤 튕김, 부장→대표님 라우팅 등 패치 6개
   - 0.5.6 → 0.5.7: **`bujang chat` better-sqlite3 마이그레이션** — system sqlite3 CLI shell-out → better-sqlite3 (네이티브 prebuild). 매 쿼리 process spawn 비용 제거. (단 0.5.7 에는 윈도우 브라우저 자동열기 버그 잔존)
   - 0.5.7 → 0.5.8: 윈도우 `openBrowser()` 픽스 — `spawn('start', ...)` 비동기 ENOENT 로 톡방 프로세스가 죽던 버그. `cmd /c start "" <url>` 우회 + error 핸들러 추가.
-  - 0.5.8 → **0.5.9**: **윈도우에서 `init` 자체가 silent death 하던 치명 버그 픽스** — `index.ts` 가 `chat.ts` 를 top-level import 하던 탓에 better-sqlite3 native binding 로드 실패 시 `init` 코드가 한 줄도 못 돌고 즉사. 모든 커맨드를 dynamic `import()` 로 전환 — `init/status/adapt/update/migrate` 는 better-sqlite3 를 아예 안 건드림. (`bujang chat` 만 native binding 필요)
+  - 0.5.8 → 0.5.9: **윈도우에서 `init` 자체가 silent death 하던 치명 버그 픽스** — `index.ts` 가 `chat.ts` 를 top-level import 하던 탓에 better-sqlite3 native binding 로드 실패 시 `init` 코드가 한 줄도 못 돌고 즉사. 모든 커맨드를 dynamic `import()` 로 전환 — `init/status/adapt/update/migrate` 는 better-sqlite3 를 아예 안 건드림. (`bujang chat` 만 native binding 필요)
+  - 0.5.9 → **0.5.10**: **🔒 1:1 매핑 룰 강화** — director / cofounder 페르소나 + CLAUDE.md 템플릿 (한·영 6개 파일) 에 "**Agent 툴 호출 1번 = `harness_messages` INSERT 1행**" 룰 inline 명시. 병렬 N팀 호출 시 INSERT N건 + 사전 동의 1번 + 디스패치 직전·동시 INSERT. 트리비얼 1줄 픽스도 부장 명의 INSERT 1행 박기 (감사 추적). 사전 동의 → INSERT → Agent 호출 → 결과 INSERT 순서 고정.
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
 
 ### 🧑 부장님이 직접 하셔야 하는 일 (남은 것)
 
-#### 1️⃣ npm publish 0.5.2 (필수, 5분)
-
-이번 publish에 **0.4.0 → 0.5.2 사이 8개 패치** 가 한 번에 라이브됨:
-- 톡방 입력창 제거 (0.4.1)
-- 한국어 디폴트 (0.4.2)
-- 새 팀원 채용 절차 (0.4.3)
-- 전체/안읽음 필터 (0.4.4)
-- 콘텐츠 7팀 추가 (0.5.0)
-- 공동대표 페르소나 + 외부팀원 톡방 + 사전 동의 + PRD 매핑 (0.5.1)
-- `bujang update` 명령 — 기존 파일 절대 안 건드리는 안전 업데이트 (0.5.2)
-
-```bash
-cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
-npm publish --access public  # Touch ID 한 번
-```
-
-publish 후 검증:
-```bash
-mkdir -p /tmp/test-052 && cd /tmp/test-052
-npx harness-bujang@latest --version       # → 0.5.2
-npx harness-bujang@latest init --yes --lang=ko
-ls .claude/agents/ | wc -l                # → 18 (16팀 + director + cofounder)
-npx harness-bujang@latest adapt --to=all --yes
-ls -la .cursor .clinerules CONVENTIONS.md AGENTS.md GEMINI.md  # 모두 존재
-
-# 안전 업데이트 검증: 기존 파일 안 건드리는지
-npx harness-bujang@latest update          # → 신규 파일 0개 추가, 기존 18개 그대로
-```
-
-#### 2️⃣ Claude Code 마켓플레이스 등록 (선택)
+#### 1️⃣ Claude Code 마켓플레이스 등록 (선택)
 
 - 신청 페이지: https://claude.com/code (Plugin 카탈로그 메뉴)
 - 또는 Anthropic 이메일로 신청
 - 등록되면 `/plugin install harness-bujang` (저장소 prefix 생략 가능)
 
-#### 3️⃣ 마케팅 (선택, 가시성 필요할 때)
+#### 2️⃣ 마케팅 (선택, 가시성 필요할 때)
 
 - HackerNews: "Show HN: Harness-Bujang — Korean-style multi-agent..."
 - Reddit: r/ClaudeAI, r/LocalLLaMA

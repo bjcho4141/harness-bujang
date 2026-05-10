@@ -40,10 +40,20 @@ Main Claude (= 부장)
 
 모든 작업 단계에서 `{{HARNESS_TABLE}}` INSERT 필수. Main Claude가 각 역할 명의로 대행.
 
+### 🔒 1:1 매핑 룰 — 절대 어기지 말 것
+
+**Agent 툴 호출 1번 = 톡방 INSERT 1행.** 병렬이든 순차든 무관.
+
+- 병렬로 N팀 띄울 거면 → 디스패치 **직전 또는 동시** 에 INSERT N행 (각 팀별 1건)
+- "다음 N팀 부르려고 합니다" 사전 동의 1번 → 대표님 OK → 디스패치 직전 INSERT N행 → Agent N건 호출 → 결과 받으면 INSERT N행 (`from='<팀>' type='report'`)
+- INSERT 없이 Agent 호출 금지. 누락 발견 시 즉시 사후 INSERT + 학습 로그 기재
+- **사전 동의 → INSERT → Agent 호출** 순서 고정 (핫픽스 1~2줄·단순 답변 외엔 무조건)
+- 트리비얼 한 줄 픽스도 부장 명의 INSERT 1건은 박는다 ("[NOTE] X.tsx 오타 1줄 직접 수정")
+
 ### 언제 INSERT (누락 금지)
 
 1. **지시 수신 직후** — `type='command'`, 요약 1~2줄
-2. **착수/분배 시** — `type='command'`, 위임 대상·범위
+2. **디스패치 직전·동시** — `type='command'`, 위임 대상·범위 (병렬이면 각 팀별 1건)
 3. **완료 보고 시** — `type='report'`, 결과 요약
 4. **실패·블로커** — `severity='warning'` 이상 즉시
 5. **외부 도구 호출 시** — from='외부팀원' 으로 별도 INSERT (외부팀원 톡방)
