@@ -1,6 +1,6 @@
 # `harness-bujang` — Claude Code Plugin
 
-A Claude Code plugin that drops in 10 specialist subagents (Director, Consultant, dev-team, architect-team, code-review-team, security-team, db-guard-team, qa-team, verifier-team, doc-sync-team) plus four slash commands.
+A Claude Code plugin that drops in 10 specialist subagents (Director, Consultant, dev-team, architect-team, code-review-team, security-team, db-guard-team, qa-team, verifier-team, doc-sync-team) plus five slash commands.
 
 ## Install
 
@@ -41,7 +41,7 @@ After install, Claude Code picks up the agents and commands automatically. Verif
 | `verifier-team` | Final build / regression gate |
 | `doc-sync-team` | Docs sync (`CLAUDE.md` / `README.md` / trackers) |
 
-### 4 slash commands (in `commands/`)
+### 5 slash commands (in `commands/`)
 
 | Command | Purpose |
 |---|---|
@@ -49,6 +49,7 @@ After install, Claude Code picks up the agents and commands automatically. Verif
 | `/bujang-status` | Health check — verify agents, `CLAUDE.md`, learning log, chat-room |
 | `/bujang-team <name> <task>` | Quick-dispatch a specific team without the Director's full ceremony |
 | `/bujang-report` | Summarize recent chat activity (last 24 h by default) |
+| `/open-chat` | Launch the standalone KakaoTalk-style chat-room viewer (`http://localhost:7777`) in the background and auto-open the browser |
 
 ## Quick start
 

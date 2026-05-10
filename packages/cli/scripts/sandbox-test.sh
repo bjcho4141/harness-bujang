@@ -77,7 +77,22 @@ green "  ✓ --help-en → English (Usage / Options for init)"
 # ---------------------------------------------------------------------------
 yellow "== STEP 1 == init --yes --lang=ko"
 mkdir -p "$SANDBOX"
-"${RUN[@]}" init --target="$SANDBOX" --yes --lang=ko > /dev/null
+INIT_OUT="$("${RUN[@]}" init --target="$SANDBOX" --yes --lang=ko 2>&1)"
+
+# 0.8.3: completion message must guide the user to (a) restart Claude Code
+# and (b) run /open-chat. This is the discoverability lifeline — without it
+# users finish init and have no idea what to do next.
+echo "$INIT_OUT" | grep -q "/open-chat" || {
+  red "  ✖ init completion message missing '/open-chat'"
+  echo "$INIT_OUT" | tail -30
+  exit 1
+}
+echo "$INIT_OUT" | grep -qE "(껐다 다시 켜|Restart Claude Code|완전 종료)" || {
+  red "  ✖ init completion message missing restart instruction"
+  echo "$INIT_OUT" | tail -30
+  exit 1
+}
+green "  ✓ completion message includes restart + /open-chat guidance (0.8.3)"
 
 assert_file() {
   if [[ ! -f "$1" ]]; then

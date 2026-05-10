@@ -87,6 +87,14 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
     - `--no-install-deps` opt-out flag (CI / 격리 환경용). 한·영 help 양쪽 추가.
     - `printBackendInstructions()` 시그니처에 `installedDeps: boolean` 추가 — auto-install 성공했으면 "1. Install the SQLite driver" 단계 자동 생략 + 나머지 단계 재번호.
     - sandbox-test Step 4.9 — stub Next.js 프로젝트 (package.json + next.config.mjs) 생성 후 SQLite/Supabase 양쪽 init 검증. `--no-install-deps` 로 hermetic 유지 (실제 npm registry 안 침). re-run idempotency 까지 검증.
+  - **0.8.3 publish 대기** — **💬 `/open-chat` 슬래시 커맨드 + 설치 후 next-step UX** — 부장님 인사이트: "설치 완료 메시지에 에이전트 껐다 다시 켜라고 하고, 슬래시 명령어 입력하라고 하자." 픽스:
+    - `packages/plugin/commands/open-chat.md` 신규 — Claude Code 안에서 `/open-chat` → LLM 이 Bash `run_in_background:true` 로 `npx harness-bujang@latest chat` 실행. 서버 백그라운드 + 브라우저 자동 오픈. 포트 7777 막혀 있으면 CLI 가 다음 포트로 fall-forward.
+    - `init.ts` `printRestartReminder` 재작성 — "Restart Claude Code" 를 STEP 1 로 prominent. 권장 = 완전 종료 후 재시작, 대안 = `/agents` (가끔 안 됨 명시).
+    - `init.ts` `printNextSteps` 신규 — STEP 2 = `/open-chat` (plugin 안 깔린 사람용 `npx harness-bujang chat` fallback 도 같이 표기), STEP 3 = "부장한테 첫 지시" 예시. Next.js 임베드 모드면 `/admin/harness` 도 같이 안내.
+    - 기존 "Next steps:" 섹션 제거 (printNextSteps 가 대체).
+    - plugin README + 톱 README "4 slash commands" → "5" 일괄 갱신. plugin commands 표에 `/open-chat` row 추가.
+    - `packages/plugin/commands/bujang-init.md` "After install" 섹션 재작성 — 1) 재시작 → 2) `/open-chat` → 3) optional checks 순서로.
+    - sandbox-test Step 1 강화 — init 출력 capture 후 `/open-chat` + restart instruction 키워드 grep 으로 회귀 방지.
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트

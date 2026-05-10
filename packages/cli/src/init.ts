@@ -517,17 +517,8 @@ export async function runInit(args: string[]): Promise<void> {
   // 7. Final summary
   console.log(c.bold(c.green('✅ Done.')));
   console.log();
-  console.log('Next steps:');
-  console.log(`   ${c.cyan('1.')} Open Claude Code in this project`);
-  console.log(`   ${c.cyan('2.')} Run ${c.bold('/bujang-status')} (if the plugin is installed) or just`);
-  console.log(`      ask ${c.bold('"Director, please add a hello-world endpoint"')}`);
-  if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
-    console.log(`   ${c.cyan('3.')} Watch ${c.bold(context.ADMIN_HARNESS_ROUTE!)} for live updates (after env setup)`);
-  } else {
-    console.log(`   ${c.cyan('3.')} Watch the chat room: ${c.bold('npx harness-bujang chat')} ${c.dim('→ http://localhost:7777')}`);
-  }
-  console.log();
   printRestartReminder(opts.lang);
+  printNextSteps(opts.lang, scan.framework.startsWith('Next.js') && opts.installTemplate, context.ADMIN_HARNESS_ROUTE!);
 }
 
 // ---------------------------------------------------------------------------
@@ -544,24 +535,72 @@ export function printRestartReminder(lang: 'ko' | 'en'): void {
   const bot = `   ${c.dim('╰' + '─'.repeat(64) + '╯')}`;
   console.log(top);
   console.log(line(ko
-    ? c.bold(c.yellow('⚠️  Claude Code 가 이미 떠 있다면 에이전트 재로드 필요!'))
-    : c.bold(c.yellow('⚠️  Claude Code already running? Reload agents!'))));
+    ? c.bold(c.yellow('⚠️  STEP 1 — Claude Code 껐다 다시 켜주세요'))
+    : c.bold(c.yellow('⚠️  STEP 1 — Restart Claude Code'))));
   console.log(line(''));
   console.log(line(ko
-    ? '에이전트 등록은 세션 시작 시점에만 일어나므로 새로 깐 팀이'
-    : 'Agents are registered at session start only, so the new teams'));
+    ? '에이전트 등록은 세션 시작 시점에만 일어나서, 지금 떠 있는'
+    : 'Agents register at session start only, so the running session'));
   console.log(line(ko
-    ? '바로 인식되지 않습니다. 다음 중 한 가지를 해주세요:'
-    : "won't be visible yet. Pick one:"));
+    ? '세션에서는 새로 깐 부장 + 팀이 안 보입니다.'
+    : "won't see the newly-installed director + teams yet."));
   console.log(line(''));
-  console.log(line(`  ${c.green('A.')} ${c.bold(ko ? 'Claude Code 안에서: ' : 'Inside Claude Code: ')}${c.cyan('/agents')}`));
-  console.log(line(`     ${c.dim(ko ? '→ 에이전트 메뉴에서 재로드' : '→ open the agent menu / refresh')}`));
-  console.log(line(''));
-  console.log(line(`  ${c.green('B.')} ${c.bold(ko ? '안되면 Claude Code 완전 종료 → 같은 폴더에서 다시 시작' : 'Or fully restart Claude Code in this folder')}`));
+  console.log(line(`  ${c.bold(ko ? '권장: ' : 'Recommended: ')}${c.cyan(ko ? 'Claude Code 완전 종료 → 같은 폴더에서 다시 시작' : 'Fully quit Claude Code → relaunch in this folder')}`));
+  console.log(line(`  ${c.dim(ko ? '대안:  ' : 'Or:          ')}${c.cyan('/agents')}${c.dim(ko ? ' (에이전트 메뉴에서 재로드, 가끔 안 됨)' : ' (refresh menu — sometimes flaky)')}`));
   console.log(line(''));
   console.log(line(c.dim(ko
-    ? '/clear 는 컨텍스트만 비웁니다 — 에이전트 재등록 안 됨'
-    : '/clear only wipes context — it does NOT re-register agents')));
+    ? '⚠ /clear 는 컨텍스트만 비움 — 에이전트 재등록 안 됨'
+    : '⚠ /clear only wipes context — it does NOT re-register agents')));
+  console.log(bot);
+  console.log();
+}
+
+/**
+ * 0.8.3: Concrete next-step UX after restart. Leads with `/open-chat` since
+ * that's the most discoverable way to verify install + see live director
+ * activity. Also lists the "ask the Director" pattern for the user to start
+ * actual work.
+ */
+function printNextSteps(lang: 'ko' | 'en', nextjsEmbedded: boolean, adminRoute: string): void {
+  const ko = lang === 'ko';
+  const line = (s: string) => `   ${c.dim('│')} ${s}`;
+  const top = `   ${c.dim('╭' + '─'.repeat(64) + '╮')}`;
+  const bot = `   ${c.dim('╰' + '─'.repeat(64) + '╯')}`;
+  console.log(top);
+  console.log(line(c.bold(c.green(ko
+    ? '✨ STEP 2 — 재시작 후 톡방 열기'
+    : '✨ STEP 2 — After restart, open the chat room'))));
+  console.log(line(''));
+  console.log(line(`  ${c.bold(ko ? 'Claude Code 안에서:  ' : 'Inside Claude Code:  ')}${c.cyan('/open-chat')}`));
+  console.log(line(`  ${c.dim(ko
+    ? '→ 백그라운드로 톡방 서버 띄우고 브라우저 자동 오픈'
+    : '→ launches the chat-room server in background + opens the browser')}`));
+  console.log(line(''));
+  console.log(line(c.dim(ko
+    ? '플러그인 안 설치하셨으면 (별도 터미널):'
+    : 'No plugin installed? (separate terminal):')));
+  console.log(line(`  ${c.dim('$')} ${c.cyan('npx harness-bujang chat')} ${c.dim('→ http://localhost:7777')}`));
+  if (nextjsEmbedded) {
+    console.log(line(''));
+    console.log(line(c.dim(ko
+      ? `또는 dev 서버 띄우고 ${c.bold(adminRoute)} 방문 (같은 톡방, 다른 surface)`
+      : `Or run your dev server and visit ${c.bold(adminRoute)} (same chat, different surface)`)));
+  }
+  console.log(bot);
+  console.log();
+  console.log(top);
+  console.log(line(c.bold(c.cyan(ko
+    ? '🎯 STEP 3 — 부장한테 첫 지시'
+    : '🎯 STEP 3 — Give the Director a first task'))));
+  console.log(line(''));
+  console.log(line(c.dim(ko ? '예:' : 'e.g.:')));
+  console.log(line(`  ${c.bold(ko
+    ? '"부장님, hello-world 엔드포인트 하나 만들어줘"'
+    : '"Director, please add a hello-world endpoint"')}`));
+  console.log(line(''));
+  console.log(line(c.dim(ko
+    ? '부장이 팀 호출 → 작업 → 톡방에 모든 INSERT 가 실시간으로 보임'
+    : 'Director dispatches teams → work → every INSERT streams to the chat room')));
   console.log(bot);
   console.log();
 }

@@ -205,7 +205,7 @@ Director (Main Claude persona)
    Every step → harness_messages chat → live admin UI
 ```
 
-18 personas (1 director + 1 cofounder + 9 engineering + 7 content), 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
+18 personas (1 director + 1 cofounder + 9 engineering + 7 content), 5 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
 
 **One-line install + multi-tool fan-out** (0.6.0+):
 
@@ -297,7 +297,7 @@ graph TD
 /bujang-init
 ```
 
-→ 영어 에이전트 + 슬래시 커맨드 4종이 한 줄로 설치됩니다. `/bujang-init`이 프로젝트 자동 스캔 후 `.claude/agents/`에 채워줍니다.
+→ 영어 에이전트 + 슬래시 커맨드 5종이 한 줄로 설치됩니다. `/bujang-init`이 프로젝트 자동 스캔 후 `.claude/agents/`에 채워줍니다. 설치 후 Claude Code 완전 종료 → 다시 시작 → `/open-chat` 한 번이면 톡방 자동 오픈.
 
 ### 길 B — CLI (어떤 환경이든)
 
@@ -350,7 +350,7 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 
 | 패키지 | 역할 | npm | 설치 |
 |---|---|---|---|
-| [`packages/plugin`](./packages/plugin) | Claude Code Plugin (10 agents + 4 slash commands) | — | `/plugin install bjcho4141/harness-bujang` |
+| [`packages/plugin`](./packages/plugin) | Claude Code Plugin (10 agents + 5 slash commands) | — | `/plugin install bjcho4141/harness-bujang` |
 | [`packages/cli`](./packages/cli) | `harness-bujang init` 인스톨러 | `harness-bujang` | `npx harness-bujang init` |
 | [`packages/template`](./packages/template) | Next.js + Postgres 톡방 UI 자산 | — | CLI가 자동 복사 |
 

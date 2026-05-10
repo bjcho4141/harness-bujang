@@ -28,9 +28,12 @@ npx harness-bujang@latest init --yes --lang=ko
 
 ## After install
 
-- Run `/bujang-status` to verify everything landed correctly
-- Open `CLAUDE.md` and review the `## 하네스 엔지니어링` (or `## Harness Engineering`) section that was appended
-- For Next.js with chat-room UI: install `better-sqlite3` (or set up Supabase env vars), then `npm run dev` and visit `/admin/harness`
+1. **Restart Claude Code** — fully quit and reopen in this folder. Agents register only at session start, so the new director + teams won't be visible until you restart.
+2. **Open the chat room** — run `/open-chat` to launch the standalone viewer at `http://localhost:7777` (server backgrounds, browser auto-opens).
+3. Optional checks:
+   - Run `/bujang-status` to verify everything landed correctly
+   - Open `CLAUDE.md` and review the `## 하네스 엔지니어링` (or `## Harness Engineering`) section that was appended
+   - For Next.js with chat-room UI: 0.8.2+ auto-installs `better-sqlite3` and patches `next.config`, so `npm run dev` + `/admin/harness` should work immediately. Supabase mode auto-scaffolds `.env.local.example` — fill in the keys before running.
 
 ## Idempotence
 
