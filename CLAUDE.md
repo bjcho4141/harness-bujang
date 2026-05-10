@@ -77,7 +77,8 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.7.0 — 에이전트 .md 하이브리드 변환 (instructions 영어, 부장 발화 한국어 유지) — 토큰 ~30~40% 절감
   - 0.7.1 — README + CLAUDE.md 0.5.3 → 0.7.0 동기화 (docs only)
   - 0.7.2 — 인터랙티브 prompt 7개 한국어 통일 + 도구 선택 checkbox 에 Claude Code 항목 추가
-  - **0.8.0 publish 대기** — Claude Code 토글 가능 + 도구별 모델 prompt 분기 (Codex / Gemini / Aider). 부장님 Touch ID 필요.
+  - 0.8.0 — Claude 토글 가능 + 도구별 모델 prompt 분기 (Codex / Gemini / Aider 단일 모델 픽)
+  - **0.8.1 publish 대기** — Codex / Gemini 도 Claude 와 동일한 5-프리셋 (balanced/keep/cost/quality/custom) + per-agent 메모. 0.8.0 publish 직후 부장님 추가 요청 — 같은 0.8.0 으로 publish 불가 (npm immutable) 라 0.8.1 patch.
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
