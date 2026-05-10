@@ -366,34 +366,52 @@ green "  ✓ balanced preset: director=opus, dev=sonnet, verifier=haiku"
 rm -rf "$SANDBOX2"
 
 # ---------------------------------------------------------------------------
-# Step 4.8 — 0.8.0: per-tool model flags (--codex-model / --gemini-model /
-# --aider-model). Verifies AGENTS.md / GEMINI.md memo lines + .aider.conf.yml
-# model field actually get written by init.
+# Step 4.8 — 0.8.0: per-tool model PRESETS (--codex-models=balanced etc.).
+# Codex / Gemini get the same 5-preset UI as Claude — balanced means
+# per-agent mapping, written as memo lines above each `## <agent>` section
+# in AGENTS.md / GEMINI.md. Aider stays single-value (.aider.conf.yml).
 # ---------------------------------------------------------------------------
-yellow "== STEP 4.8 == init --tools=codex,gemini,aider --*-model= (0.8.0)"
+yellow "== STEP 4.8 == init --tools=codex,gemini,aider --*-models=balanced (0.8.0)"
 SANDBOX3="${SANDBOX}-pertool"
 mkdir -p "$SANDBOX3"
 "${RUN[@]}" init --target="$SANDBOX3" --yes --lang=ko \
   --tools=codex,gemini,aider \
-  --codex-model=gpt-5-codex \
-  --gemini-model=gemini-2.5-pro \
+  --codex-models=balanced \
+  --gemini-models=balanced \
   --aider-model=claude-sonnet-4-6 > /dev/null
 
-# Codex memo in AGENTS.md
-grep -q "Recommended model.*gpt-5-codex" "$SANDBOX3/AGENTS.md" || {
-  red "  ✖ AGENTS.md missing Codex model memo (gpt-5-codex)"
+# Codex per-agent memos in AGENTS.md (balanced: dev=gpt-5-codex, security=o1, etc.)
+CODEX_MEMOS="$(grep -c '💡 Recommended model' "$SANDBOX3/AGENTS.md" || true)"
+if [[ "$CODEX_MEMOS" -lt 17 ]]; then
+  red "  ✖ AGENTS.md should have ≥17 per-agent memos, got $CODEX_MEMOS"
   exit 1
-}
-green "  ✓ AGENTS.md ← Codex 권장 모델 메모: gpt-5-codex"
+fi
+green "  ✓ AGENTS.md ← Codex 에이전트별 메모 ${CODEX_MEMOS}건 (balanced)"
 
-# Gemini memo in GEMINI.md
-grep -q "Recommended model.*gemini-2.5-pro" "$SANDBOX3/GEMINI.md" || {
-  red "  ✖ GEMINI.md missing Gemini model memo (gemini-2.5-pro)"
+# Verify mapping diversity — balanced should produce multiple distinct models.
+DISTINCT_CODEX="$(grep -oE 'Recommended model: \`[^`]+\`' "$SANDBOX3/AGENTS.md" | sort -u | wc -l | tr -d ' ')"
+if [[ "$DISTINCT_CODEX" -lt 3 ]]; then
+  red "  ✖ Codex balanced should produce ≥3 distinct models, got $DISTINCT_CODEX"
   exit 1
-}
-green "  ✓ GEMINI.md ← Gemini 권장 모델 메모: gemini-2.5-pro"
+fi
+green "  ✓ Codex balanced 매핑 다양성: $DISTINCT_CODEX 종류 (gpt-5 / gpt-5-codex / o1 / gpt-4-turbo / o1-mini 중)"
 
-# Aider model field actually applied (not just memo)
+# Gemini per-agent memos in GEMINI.md
+GEMINI_MEMOS="$(grep -c '💡 Recommended model' "$SANDBOX3/GEMINI.md" || true)"
+if [[ "$GEMINI_MEMOS" -lt 17 ]]; then
+  red "  ✖ GEMINI.md should have ≥17 per-agent memos, got $GEMINI_MEMOS"
+  exit 1
+fi
+green "  ✓ GEMINI.md ← Gemini 에이전트별 메모 ${GEMINI_MEMOS}건 (balanced)"
+
+DISTINCT_GEMINI="$(grep -oE 'Recommended model: \`[^`]+\`' "$SANDBOX3/GEMINI.md" | sort -u | wc -l | tr -d ' ')"
+if [[ "$DISTINCT_GEMINI" -lt 2 ]]; then
+  red "  ✖ Gemini balanced should produce ≥2 distinct models (pro / flash), got $DISTINCT_GEMINI"
+  exit 1
+fi
+green "  ✓ Gemini balanced 매핑 다양성: $DISTINCT_GEMINI 종류 (gemini-2.5-pro / 2.5-flash 중)"
+
+# Aider model field actually applied (single value — no preset)
 grep -q "^model: claude-sonnet-4-6" "$SANDBOX3/.aider.conf.yml" || {
   red "  ✖ .aider.conf.yml missing 'model: claude-sonnet-4-6'"
   cat "$SANDBOX3/.aider.conf.yml"

@@ -73,24 +73,82 @@ type ModelPreset = 'balanced' | 'cost' | 'quality' | 'keep' | 'custom';
 const ALL_ADAPTERS: AdapterTarget[] = ['cursor', 'cline', 'aider', 'codex', 'gemini'];
 
 /**
- * Per-tool model recommendations. Codex/Gemini are written as memo lines
- * inside AGENTS.md / GEMINI.md (the tool itself doesn't enforce the model;
- * users still pick it in their tool's settings — the memo is a guide).
- * Aider is the only non-Claude tool where the model field is actually
- * enforced (via .aider.conf.yml).
+ * Per-tool model recommendations. Codex/Gemini get the same 5-preset UI as
+ * Claude (balanced / keep / cost / quality / custom) — consistent UX across
+ * tools. The result is written as a per-agent "💡 Recommended: <model>" memo
+ * inside AGENTS.md / GEMINI.md (the tool itself doesn't enforce, but it's a
+ * concrete guide for users running each role).
+ *
+ * Aider is the only non-Claude tool with a real model field (.aider.conf.yml),
+ * but it's a SINGLE value (Aider runs one model at a time) — no per-agent
+ * preset makes sense. We keep Aider as a single-model picker.
  */
-const CODEX_MODELS = ['gpt-5', 'gpt-5-codex', 'gpt-4-turbo', 'o1', 'o1-mini'] as const;
-const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-pro', 'gemini-2.0-flash'] as const;
-const AIDER_MODELS = [
-  'claude-opus-4-7',
-  'claude-sonnet-4-6',
-  'gpt-5',
-  'gemini-2.5-pro',
-  '(skip)',
-] as const;
-type CodexModel  = typeof CODEX_MODELS[number]  | 'skip';
-type GeminiModel = typeof GEMINI_MODELS[number] | 'skip';
-type AiderModel  = typeof AIDER_MODELS[number];
+type CodexModel  = 'gpt-5' | 'gpt-5-codex' | 'gpt-4-turbo' | 'o1' | 'o1-mini';
+type GeminiModel = 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gemini-2.0-pro' | 'gemini-2.0-flash';
+type AiderModel  = 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'gpt-5' | 'gemini-2.5-pro' | '(skip)';
+
+/** Codex balanced mapping — gpt-5 for big decisions, gpt-5-codex for coding,
+ *  o1 for reasoning-heavy audits, gpt-4-turbo for execution / verification. */
+const CODEX_BALANCED: Record<string, CodexModel> = {
+  director:           'gpt-5',
+  cofounder:          'gpt-5',
+  'architect-team':   'gpt-5',
+  consultant:         'gpt-5',
+  'security-team':    'o1',
+  'db-guard-team':    'o1',
+  'dev-team':         'gpt-5-codex',
+  'code-review-team': 'gpt-5-codex',
+  'qa-team':          'gpt-4-turbo',
+  'verifier-team':    'gpt-4-turbo',
+  'doc-sync-team':    'gpt-4-turbo',
+  'research-team':    'gpt-5',
+  'analysis-team':    'gpt-5',
+  'script-team':      'gpt-4-turbo',
+  'image-team':       'o1-mini',
+  'voice-team':       'o1-mini',
+  'edit-team':        'o1-mini',
+  'content-qa-team':  'o1-mini',
+};
+
+/** Gemini balanced — pro for big decisions / analysis, flash for fast loops. */
+const GEMINI_BALANCED: Record<string, GeminiModel> = {
+  director:           'gemini-2.5-pro',
+  cofounder:          'gemini-2.5-pro',
+  'architect-team':   'gemini-2.5-pro',
+  consultant:         'gemini-2.5-pro',
+  'security-team':    'gemini-2.5-pro',
+  'db-guard-team':    'gemini-2.5-pro',
+  'dev-team':         'gemini-2.5-pro',
+  'code-review-team': 'gemini-2.5-pro',
+  'qa-team':          'gemini-2.5-flash',
+  'verifier-team':    'gemini-2.5-flash',
+  'doc-sync-team':    'gemini-2.5-flash',
+  'research-team':    'gemini-2.5-pro',
+  'analysis-team':    'gemini-2.5-pro',
+  'script-team':      'gemini-2.5-flash',
+  'image-team':       'gemini-2.5-flash',
+  'voice-team':       'gemini-2.5-flash',
+  'edit-team':        'gemini-2.5-flash',
+  'content-qa-team':  'gemini-2.5-flash',
+};
+
+function resolveCodexPreset(preset: Exclude<ModelPreset, 'custom'>): Record<string, CodexModel> {
+  if (preset === 'keep') return {};
+  if (preset === 'balanced') return { ...CODEX_BALANCED };
+  const tier: CodexModel = preset === 'cost' ? 'gpt-4-turbo' : 'gpt-5';
+  const out: Record<string, CodexModel> = {};
+  for (const k of Object.keys(CODEX_BALANCED)) out[k] = tier;
+  return out;
+}
+
+function resolveGeminiPreset(preset: Exclude<ModelPreset, 'custom'>): Record<string, GeminiModel> {
+  if (preset === 'keep') return {};
+  if (preset === 'balanced') return { ...GEMINI_BALANCED };
+  const tier: GeminiModel = preset === 'cost' ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
+  const out: Record<string, GeminiModel> = {};
+  for (const k of Object.keys(GEMINI_BALANCED)) out[k] = tier;
+  return out;
+}
 
 /**
  * Balanced cost/quality mapping. Heavyweight thinkers on opus, executors on
@@ -148,11 +206,12 @@ interface InitOptions {
    */
   modelMap: Record<string, ModelTier>;
   /**
-   * 0.8.0: per-tool model recommendation for non-Claude adapters. Empty =
-   * skip the per-tool model prompt (or user picked "skip" in interactive).
+   * 0.8.0: per-tool model maps (per-agent, like Claude's modelMap). Empty
+   * object = "keep" preset (no memo written).
    */
-  codexModel?:  CodexModel;
-  geminiModel?: GeminiModel;
+  codexModelMap?:  Record<string, CodexModel>;
+  geminiModelMap?: Record<string, GeminiModel>;
+  /** Aider has a SINGLE model field (.aider.conf.yml) — no per-agent map. */
   aiderModel?:  AiderModel;
 }
 
@@ -210,9 +269,9 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(c.dim(`   Language:      ${opts.lang}`));
   console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? ' (local file)' : ' (cloud Postgres)'}`));
   console.log(c.dim(`   Tools:         claude${opts.adapters.length > 0 ? ` + ${opts.adapters.join(', ')}` : ' (only)'}`));
-  console.log(c.dim(`   Claude model:  ${describeModelMap(opts.modelMap)}`));
-  if (opts.codexModel  && opts.codexModel  !== 'skip')  console.log(c.dim(`   Codex model:   ${opts.codexModel} (memo)`));
-  if (opts.geminiModel && opts.geminiModel !== 'skip')  console.log(c.dim(`   Gemini model:  ${opts.geminiModel} (memo)`));
+  console.log(c.dim(`   Claude models: ${describeModelMap(opts.modelMap)}`));
+  if (opts.codexModelMap)  console.log(c.dim(`   Codex models:  ${describeAnyMap(opts.codexModelMap)}`));
+  if (opts.geminiModelMap) console.log(c.dim(`   Gemini models: ${describeAnyMap(opts.geminiModelMap)}`));
   if (opts.aiderModel  && opts.aiderModel  !== '(skip)') console.log(c.dim(`   Aider model:   ${opts.aiderModel} (.aider.conf.yml)`));
   if (scan.framework.startsWith('Next.js')) {
     console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
@@ -422,8 +481,8 @@ export async function runInit(args: string[]): Promise<void> {
     ]);
 
     // 6.6 (0.8.0) — apply per-tool model recommendations to the adapter outputs.
-    if (opts.codexModel  && opts.codexModel  !== 'skip')  await injectCodexModelMemo(opts.target, opts.codexModel);
-    if (opts.geminiModel && opts.geminiModel !== 'skip')  await injectGeminiModelMemo(opts.target, opts.geminiModel);
+    if (opts.codexModelMap  && Object.keys(opts.codexModelMap).length > 0)  await injectCodexModelMemos(opts.target, opts.codexModelMap);
+    if (opts.geminiModelMap && Object.keys(opts.geminiModelMap).length > 0) await injectGeminiModelMemos(opts.target, opts.geminiModelMap);
     if (opts.aiderModel  && opts.aiderModel  !== '(skip)') await setAiderModel(opts.target, opts.aiderModel);
   }
 
@@ -551,37 +610,42 @@ async function promptInteractive(
     modelMap = preset === 'custom' ? await promptCustomModelMap() : resolvePreset(preset);
   }
 
-  // 2. Codex — only if Codex is checked
-  let codexModel: CodexModel | undefined;
+  // 2. Codex — only if Codex is checked. Same 5-preset UX as Claude.
+  let codexModelMap: Record<string, CodexModel> | undefined;
   if (adapters.includes('codex')) {
-    codexModel = (await select({
-      message: '🟢 Codex 권장 모델? [AGENTS.md 상단 메모로 박힘 — 실제 모델은 코덱스 안에서 사용자가 픽]',
+    const preset = (await select({
+      message: '🟢 Codex 에이전트 모델 매핑? [AGENTS.md 의 각 에이전트 섹션에 메모로 박힘 — 가이드용]',
       choices: [
-        { name: 'gpt-5         (최신)',           value: 'gpt-5'        },
-        { name: 'gpt-5-codex   (코딩 특화)',       value: 'gpt-5-codex'  },
-        { name: 'gpt-4-turbo',                    value: 'gpt-4-turbo'  },
-        { name: 'o1            (추론 특화)',        value: 'o1'           },
-        { name: 'o1-mini       (가벼운 추론)',     value: 'o1-mini'      },
-        { name: 'skip          (메모 안 박음)',     value: 'skip'         },
+        { name: 'balanced — gpt-5 / gpt-5-codex / o1 / gpt-4-turbo 역할별 매핑 (추천)',  value: 'balanced' },
+        { name: 'keep     — 메모 안 박음 (사용자가 코덱스 안에서 픽)',                     value: 'keep'     },
+        { name: 'cost     — 전부 gpt-4-turbo (가장 저렴)',                                 value: 'cost'     },
+        { name: 'quality  — 전부 gpt-5 (가장 똑똑)',                                       value: 'quality'  },
+        { name: 'custom   — 에이전트별 직접 선택 (18개 prompt)',                            value: 'custom'   },
       ],
-      default: 'gpt-5-codex',
-    })) as CodexModel;
+      default: 'balanced',
+    })) as ModelPreset;
+    codexModelMap = preset === 'custom'
+      ? await promptCustomCodexMap()
+      : resolveCodexPreset(preset);
   }
 
-  // 3. Gemini — only if Gemini is checked
-  let geminiModel: GeminiModel | undefined;
+  // 3. Gemini — only if Gemini is checked. Same 5-preset UX.
+  let geminiModelMap: Record<string, GeminiModel> | undefined;
   if (adapters.includes('gemini')) {
-    geminiModel = (await select({
-      message: '🔵 Gemini 권장 모델? [GEMINI.md 상단 메모로 박힘 — 실제 모델은 Gemini 도구 안에서 사용자가 픽]',
+    const preset = (await select({
+      message: '🔵 Gemini 에이전트 모델 매핑? [GEMINI.md 의 각 에이전트 섹션에 메모로 박힘 — 가이드용]',
       choices: [
-        { name: 'gemini-2.5-pro     (최신, 가장 똑똑)',  value: 'gemini-2.5-pro'   },
-        { name: 'gemini-2.5-flash   (빠르고 저렴)',      value: 'gemini-2.5-flash' },
-        { name: 'gemini-2.0-pro',                       value: 'gemini-2.0-pro'   },
-        { name: 'gemini-2.0-flash',                     value: 'gemini-2.0-flash' },
-        { name: 'skip               (메모 안 박음)',      value: 'skip'             },
+        { name: 'balanced — pro / flash 역할별 매핑 (추천)',                value: 'balanced' },
+        { name: 'keep     — 메모 안 박음 (Gemini 도구 안에서 픽)',           value: 'keep'     },
+        { name: 'cost     — 전부 gemini-2.5-flash (가장 빠르고 저렴)',       value: 'cost'     },
+        { name: 'quality  — 전부 gemini-2.5-pro (가장 똑똑)',                value: 'quality'  },
+        { name: 'custom   — 에이전트별 직접 선택 (18개 prompt)',              value: 'custom'   },
       ],
-      default: 'gemini-2.5-pro',
-    })) as GeminiModel;
+      default: 'balanced',
+    })) as ModelPreset;
+    geminiModelMap = preset === 'custom'
+      ? await promptCustomGeminiMap()
+      : resolveGeminiPreset(preset);
   }
 
   // 4. Aider — only if Aider is checked
@@ -611,8 +675,51 @@ async function promptInteractive(
   return {
     ...opts,
     lang, chatBackend, installTemplate, adapters, modelMap,
-    codexModel, geminiModel, aiderModel,
+    codexModelMap, geminiModelMap, aiderModel,
   };
+}
+
+async function promptCustomCodexMap(): Promise<Record<string, CodexModel>> {
+  const out: Record<string, CodexModel> = {};
+  const slugs = Object.keys(CODEX_BALANCED);
+  console.log();
+  console.log(c.dim(`   Codex custom 매핑 — ${slugs.length}개 에이전트마다 모델을 선택해주세요.`));
+  for (const slug of slugs) {
+    const tier = (await select({
+      message: `${slug.padEnd(20)}`,
+      choices: [
+        { name: 'gpt-5         (최신, 큰 결정)',     value: 'gpt-5'        },
+        { name: 'gpt-5-codex   (코딩 특화)',         value: 'gpt-5-codex'  },
+        { name: 'gpt-4-turbo  (균형)',              value: 'gpt-4-turbo'  },
+        { name: 'o1            (추론 특화)',          value: 'o1'           },
+        { name: 'o1-mini       (가벼운, 빠름)',      value: 'o1-mini'      },
+      ],
+      default: CODEX_BALANCED[slug] ?? 'gpt-4-turbo',
+    })) as CodexModel;
+    out[slug] = tier;
+  }
+  return out;
+}
+
+async function promptCustomGeminiMap(): Promise<Record<string, GeminiModel>> {
+  const out: Record<string, GeminiModel> = {};
+  const slugs = Object.keys(GEMINI_BALANCED);
+  console.log();
+  console.log(c.dim(`   Gemini custom 매핑 — ${slugs.length}개 에이전트마다 모델을 선택해주세요.`));
+  for (const slug of slugs) {
+    const tier = (await select({
+      message: `${slug.padEnd(20)}`,
+      choices: [
+        { name: 'gemini-2.5-pro     (최신, 가장 똑똑)',  value: 'gemini-2.5-pro'   },
+        { name: 'gemini-2.5-flash   (빠르고 저렴)',      value: 'gemini-2.5-flash' },
+        { name: 'gemini-2.0-pro',                       value: 'gemini-2.0-pro'   },
+        { name: 'gemini-2.0-flash',                     value: 'gemini-2.0-flash' },
+      ],
+      default: GEMINI_BALANCED[slug] ?? 'gemini-2.5-flash',
+    })) as GeminiModel;
+    out[slug] = tier;
+  }
+  return out;
 }
 
 async function promptCustomModelMap(): Promise<Record<string, ModelTier>> {
@@ -677,12 +784,26 @@ function parseArgs(args: string[]): InitOptions {
     modelMap = resolvePreset(modelsRaw as Exclude<ModelPreset, 'custom'>);
   }
 
-  // 0.8.0: per-tool model recommendations (CI-mode flags). Validation is
-  // permissive — we accept any string the user provides for codex/gemini/aider
-  // models (LLM model names change frequently).
-  const codexModel  = getFlag(args, '--codex-model')  as CodexModel  | undefined;
-  const geminiModel = getFlag(args, '--gemini-model') as GeminiModel | undefined;
-  const aiderModel  = getFlag(args, '--aider-model')  as AiderModel  | undefined;
+  // 0.8.0: per-tool model presets (CI-mode flags). Same 4 presets as
+  // --models for Claude (balanced/keep/cost/quality — no `custom` from CLI).
+  // Aider is single-value so it accepts the model name directly.
+  const codexPresetRaw  = getFlag(args, '--codex-models');
+  const geminiPresetRaw = getFlag(args, '--gemini-models');
+  let codexModelMap:  Record<string, CodexModel>  | undefined;
+  let geminiModelMap: Record<string, GeminiModel> | undefined;
+  if (codexPresetRaw) {
+    if (!['balanced', 'cost', 'quality', 'keep'].includes(codexPresetRaw)) {
+      throw new Error(`--codex-models must be one of: balanced, cost, quality, keep (got "${codexPresetRaw}")`);
+    }
+    codexModelMap = resolveCodexPreset(codexPresetRaw as Exclude<ModelPreset, 'custom'>);
+  }
+  if (geminiPresetRaw) {
+    if (!['balanced', 'cost', 'quality', 'keep'].includes(geminiPresetRaw)) {
+      throw new Error(`--gemini-models must be one of: balanced, cost, quality, keep (got "${geminiPresetRaw}")`);
+    }
+    geminiModelMap = resolveGeminiPreset(geminiPresetRaw as Exclude<ModelPreset, 'custom'>);
+  }
+  const aiderModel = getFlag(args, '--aider-model') as AiderModel | undefined;
 
   return {
     lang,
@@ -697,8 +818,8 @@ function parseArgs(args: string[]): InitOptions {
     yes:              args.includes('--yes') || args.includes('-y'),
     adapters,
     modelMap,
-    codexModel,
-    geminiModel,
+    codexModelMap,
+    geminiModelMap,
     aiderModel,
   };
 }
@@ -831,43 +952,55 @@ function printBackendInstructions(backend: ChatBackend, commitChat: boolean): vo
 }
 
 /**
- * 0.8.0: write a "Recommended model: <name>" memo into AGENTS.md after the
- * first heading. AGENTS.md / GEMINI.md don't have a standard model field, so
- * this is a guide for users — they still pick the model in their tool's UI.
+ * 0.8.0: write a "💡 Recommended model: <name>" memo above EACH agent
+ * section (`## <slug>` headers) in AGENTS.md / GEMINI.md. The tool itself
+ * doesn't enforce — but users running each role can see the recommendation.
  */
-async function injectCodexModelMemo(target: string, model: string): Promise<void> {
+async function injectCodexModelMemos(target: string, modelMap: Record<string, string>): Promise<void> {
   const fp = path.join(target, 'AGENTS.md');
   if (!(await exists(fp))) return;
   const raw = await fs.readFile(fp, 'utf8');
-  const memo = `\n> 💡 **Recommended model**: \`${model}\` — pick this in your Codex / Copilot settings for best results with this harness.\n`;
-  if (raw.includes('Recommended model')) return;
-  // Insert after the first H1 line.
-  const lines = raw.split('\n');
-  const h1Idx = lines.findIndex((l) => l.startsWith('# '));
-  if (h1Idx < 0) {
-    await fs.writeFile(fp, memo + raw);
-    return;
-  }
-  lines.splice(h1Idx + 1, 0, memo);
-  await fs.writeFile(fp, lines.join('\n'));
-  console.log(c.dim(`   ✓ AGENTS.md ← Codex 권장 모델 메모: ${model}`));
+  const updated = injectPerAgentMemos(raw, modelMap, '코덱스 / Copilot 안에서 이 모델로 작업');
+  await fs.writeFile(fp, updated);
+  const count = Object.keys(modelMap).length;
+  console.log(c.dim(`   ✓ AGENTS.md ← Codex 권장 모델 메모 ${count}건 (각 에이전트 섹션 위)`));
 }
 
-async function injectGeminiModelMemo(target: string, model: string): Promise<void> {
+async function injectGeminiModelMemos(target: string, modelMap: Record<string, string>): Promise<void> {
   const fp = path.join(target, 'GEMINI.md');
   if (!(await exists(fp))) return;
   const raw = await fs.readFile(fp, 'utf8');
-  const memo = `\n> 💡 **Recommended model**: \`${model}\` — pick this in Gemini CLI / Antigravity / Code Assist settings.\n`;
-  if (raw.includes('Recommended model')) return;
+  const updated = injectPerAgentMemos(raw, modelMap, 'Gemini CLI / Antigravity 안에서 이 모델로 작업');
+  await fs.writeFile(fp, updated);
+  const count = Object.keys(modelMap).length;
+  console.log(c.dim(`   ✓ GEMINI.md ← Gemini 권장 모델 메모 ${count}건 (각 에이전트 섹션 위)`));
+}
+
+/**
+ * Walk the markdown looking for `## <slug>` lines and inject a memo line
+ * just before each one (only if a recommendation exists for that slug).
+ * Idempotent — if a memo for the same slug is already present, skip it.
+ */
+function injectPerAgentMemos(raw: string, modelMap: Record<string, string>, hint: string): string {
   const lines = raw.split('\n');
-  const h1Idx = lines.findIndex((l) => l.startsWith('# '));
-  if (h1Idx < 0) {
-    await fs.writeFile(fp, memo + raw);
-    return;
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const m = /^##\s+([a-z][a-z0-9-]*)\s*$/.exec(line);
+    if (m) {
+      const slug = m[1]!;
+      const model = modelMap[slug];
+      // Skip if the previous out-line is already a "💡 Recommended" memo
+      // for this same agent (idempotency on re-runs).
+      const prev = out[out.length - 1] ?? '';
+      if (model && !prev.includes('💡 Recommended')) {
+        out.push(`> 💡 Recommended model: \`${model}\` — ${hint}`);
+        out.push('');
+      }
+    }
+    out.push(line);
   }
-  lines.splice(h1Idx + 1, 0, memo);
-  await fs.writeFile(fp, lines.join('\n'));
-  console.log(c.dim(`   ✓ GEMINI.md ← Gemini 권장 모델 메모: ${model}`));
+  return out.join('\n');
 }
 
 /**
@@ -912,6 +1045,17 @@ function describeModelMap(map: Record<string, ModelTier>): string {
   for (const tier of ['opus', 'sonnet', 'haiku'] as const) {
     if (counts[tier] > 0) parts.push(`${counts[tier]} ${tier}`);
   }
+  return parts.join(' · ');
+}
+
+/** Generic counter for non-Claude maps (any model name). */
+function describeAnyMap(map: Record<string, string>): string {
+  if (Object.keys(map).length === 0) return 'keep (메모 안 박음)';
+  const counts: Record<string, number> = {};
+  for (const v of Object.values(map)) counts[v] = (counts[v] ?? 0) + 1;
+  const parts = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([model, n]) => `${n} ${model}`);
   return parts.join(' · ');
 }
 
