@@ -47,6 +47,32 @@ fi
 green "  ✓ --version → $ACTUAL_VERSION (matches package.json)"
 
 # ---------------------------------------------------------------------------
+# Step 0.5 — --help defaults to Korean (0.6.2), --help-en preserves English
+# ---------------------------------------------------------------------------
+yellow "== STEP 0.5 == --help 한국어 디폴트 + --help-en 영어 유지"
+HELP_KO_OUT="$("${RUN[@]}" --help)"
+echo "$HELP_KO_OUT" | grep -q "사용법:" || {
+  red "  ✖ --help did not contain Korean header '사용법:'"
+  exit 1
+}
+echo "$HELP_KO_OUT" | grep -q "init 옵션:" || {
+  red "  ✖ --help did not contain 'init 옵션:'"
+  exit 1
+}
+green "  ✓ --help → 한국어 (사용법 / init 옵션)"
+
+HELP_EN_OUT="$("${RUN[@]}" --help-en)"
+echo "$HELP_EN_OUT" | grep -q "^Usage:" -m 1 || echo "$HELP_EN_OUT" | grep -q "Usage:" || {
+  red "  ✖ --help-en did not contain 'Usage:'"
+  exit 1
+}
+echo "$HELP_EN_OUT" | grep -q "Options for init:" || {
+  red "  ✖ --help-en did not contain 'Options for init:'"
+  exit 1
+}
+green "  ✓ --help-en → English (Usage / Options for init)"
+
+# ---------------------------------------------------------------------------
 # Step 1 — init (Korean, sqlite, --yes)
 # ---------------------------------------------------------------------------
 yellow "== STEP 1 == init --yes --lang=ko"

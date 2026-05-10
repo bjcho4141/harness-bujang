@@ -34,7 +34,90 @@ const c = {
   cyan:    (s: string) => `\x1b[36m${s}\x1b[39m`,
 } as const;
 
-const HELP = `
+const HELP_KO = `
+${c.bold('harness-bujang')} — 한국어 부장 페르소나 기반 멀티 에이전트 하네스
+${c.dim('https://github.com/bjcho4141/harness-bujang')}
+
+${c.bold('사용법:')}
+  npx harness-bujang ${c.cyan('init')}     [옵션]    프로젝트에 하네스 설치
+  npx harness-bujang ${c.cyan('update')}   [옵션]    신규 에이전트만 추가 — 기존 파일 안 건드림
+  npx harness-bujang ${c.cyan('status')}   [옵션]    하네스 설치 상태 확인
+  npx harness-bujang ${c.cyan('chat')}     [옵션]    톡방 viewer 실행 (어떤 스택이든)
+  npx harness-bujang ${c.cyan('adapt')}    --to=<cursor|cline|aider|codex|gemini|all>  다른 도구용으로 변환
+  npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  톡방 데이터 이전
+
+${c.bold('init 옵션:')}
+  --lang=<ko|en>           에이전트 언어 (기본값: ko — 전체 부장 페르소나)
+  --chat=<sqlite|supabase> 톡방 백엔드 (기본값: sqlite — 로컬 파일, 셋업 불필요)
+  --commit-chat            .harness/ 를 gitignore 안 함 (혼자 여러 PC 에서 git 동기화 시)
+  --tools=<list>           추가 어댑터: cursor,cline,aider,codex,gemini,all
+                           (Claude Code 는 항상 .claude/agents/ 에 자동 설치됨)
+  --models=<preset>        에이전트별 Claude 모델 프리셋: balanced (추천),
+                           keep (기본), cost (전부 haiku), quality (전부 opus)
+  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
+  --framework=<name>       감지된 프레임워크 덮어쓰기
+  --db=<name>              감지된 프로젝트 DB 덮어쓰기 (--chat 와 별개)
+  --no-template            톡방 UI 설치 건너뛰기
+  --no-claude-md           CLAUDE.md 수정 건너뛰기
+  --no-learning-log        학습 로그 시드 건너뛰기
+  --yes, -y                프롬프트 건너뛰고 덮어쓰기 (CI / 스크립트용)
+
+${c.dim('--yes 안 붙이면 인터랙티브 셋업 (언어 / 백엔드 / 도구 / 모델 프리셋 prompt).')}
+
+${c.bold('chat 옵션:')}
+  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
+  --port=<number>          포트 (기본값: 7777, 사용 중이면 다음 포트로)
+  --no-open                브라우저 자동 오픈 안 함
+  --create                 톡방 DB 가 없으면 빈 DB + 스키마 생성
+
+${c.bold('adapt 옵션:')}
+  --to=<cursor|cline|aider|codex|gemini|all>   필수 — 콤마 구분으로 여러 개 OK
+  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
+  --yes, -y                기존 어댑터 파일 덮어쓰기
+
+${c.bold('update 옵션:')}
+  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
+  --lang=<ko|en>           새로 추가될 에이전트 언어 (기본값: ko)
+
+${c.dim('  update 는 신규 에이전트 파일만 추가. 기존 파일은 절대 안 건드림.')}
+${c.dim('  완전 덮어쓰기 (모든 에이전트 리셋) 가 필요하면: bujang init --yes')}
+
+${c.dim('어댑터 타깃:')}
+${c.dim('  cursor  → .cursor/rules/bujang-*.mdc          (Cursor IDE)')}
+${c.dim('  cline   → .clinerules/bujang-*.md             (Cline)')}
+${c.dim('  aider   → CONVENTIONS.md + .aider.conf.yml    (Aider)')}
+${c.dim('  codex   → AGENTS.md                           (Codex CLI / Copilot Coding Agent / Cody)')}
+${c.dim('  gemini  → GEMINI.md + .gemini/styleguide.md   (Antigravity / Gemini CLI / Code Assist)')}
+
+${c.bold('migrate 옵션:')}
+  --to=<sqlite|supabase>   필수 — 이전할 백엔드
+  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
+  --yes, -y                확인 프롬프트 건너뛰기
+
+${c.bold('예시:')}
+  ${c.dim('# 한국어 부장 페르소나 + SQLite 톡방 (기본값 — 셋업 불필요)')}
+  npx harness-bujang init --lang=ko
+
+  ${c.dim('# Standalone 톡방 viewer — 어떤 스택에서도 동작 (Next.js, Rails, Django, …)')}
+  npx harness-bujang chat
+  ${c.dim('# → http://localhost:7777 자동 오픈')}
+
+  ${c.dim('# 혼자 여러 PC 에서 — git 으로 톡방 히스토리 동기화')}
+  npx harness-bujang init --commit-chat
+
+  ${c.dim('# 팀 운영 — Supabase 백엔드')}
+  npx harness-bujang init --chat=supabase
+
+  ${c.dim('# 솔로로 시작했다가 팀 단위로 확장 — 클라우드로 승격')}
+  bujang migrate --to=supabase
+
+  ${c.dim('# 다시 솔로 / 아카이빙 — 클라우드 데이터를 로컬 SQLite 로')}
+  bujang migrate --to=sqlite
+
+${c.dim('English help: ')}${c.bold('npx harness-bujang --help-en')}
+`;
+
+const HELP_EN = `
 ${c.bold('harness-bujang')} — Korean-style multi-agent harness director for Claude Code
 ${c.dim('https://github.com/bjcho4141/harness-bujang')}
 
@@ -142,14 +225,18 @@ async function main() {
     case '-v':
       console.log(await readVersion());
       break;
+    case '--help-en':
+    case '-h-en':
+      console.log(HELP_EN);
+      break;
     case '--help':
     case '-h':
     case undefined:
-      console.log(HELP);
+      console.log(HELP_KO);
       break;
     default:
-      console.error(c.red(`Unknown command: ${command}`));
-      console.log(HELP);
+      console.error(c.red(`알 수 없는 명령어: ${command}`));
+      console.log(HELP_KO);
       process.exit(1);
   }
 }
