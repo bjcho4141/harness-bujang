@@ -366,6 +366,44 @@ green "  ✓ balanced preset: director=opus, dev=sonnet, verifier=haiku"
 rm -rf "$SANDBOX2"
 
 # ---------------------------------------------------------------------------
+# Step 4.8 — 0.8.0: per-tool model flags (--codex-model / --gemini-model /
+# --aider-model). Verifies AGENTS.md / GEMINI.md memo lines + .aider.conf.yml
+# model field actually get written by init.
+# ---------------------------------------------------------------------------
+yellow "== STEP 4.8 == init --tools=codex,gemini,aider --*-model= (0.8.0)"
+SANDBOX3="${SANDBOX}-pertool"
+mkdir -p "$SANDBOX3"
+"${RUN[@]}" init --target="$SANDBOX3" --yes --lang=ko \
+  --tools=codex,gemini,aider \
+  --codex-model=gpt-5-codex \
+  --gemini-model=gemini-2.5-pro \
+  --aider-model=claude-sonnet-4-6 > /dev/null
+
+# Codex memo in AGENTS.md
+grep -q "Recommended model.*gpt-5-codex" "$SANDBOX3/AGENTS.md" || {
+  red "  ✖ AGENTS.md missing Codex model memo (gpt-5-codex)"
+  exit 1
+}
+green "  ✓ AGENTS.md ← Codex 권장 모델 메모: gpt-5-codex"
+
+# Gemini memo in GEMINI.md
+grep -q "Recommended model.*gemini-2.5-pro" "$SANDBOX3/GEMINI.md" || {
+  red "  ✖ GEMINI.md missing Gemini model memo (gemini-2.5-pro)"
+  exit 1
+}
+green "  ✓ GEMINI.md ← Gemini 권장 모델 메모: gemini-2.5-pro"
+
+# Aider model field actually applied (not just memo)
+grep -q "^model: claude-sonnet-4-6" "$SANDBOX3/.aider.conf.yml" || {
+  red "  ✖ .aider.conf.yml missing 'model: claude-sonnet-4-6'"
+  cat "$SANDBOX3/.aider.conf.yml"
+  exit 1
+}
+green "  ✓ .aider.conf.yml ← model: claude-sonnet-4-6 (Aider 진짜 적용)"
+
+rm -rf "$SANDBOX3"
+
+# ---------------------------------------------------------------------------
 # Step 5 — migrate (smoke test — sqlite → sqlite no-op succeeds)
 #
 # A real sqlite ↔ supabase round-trip would need network + creds, so we just

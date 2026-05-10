@@ -76,7 +76,8 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.6.2 — `--help` 한국어 디폴트 + `--help-en` 영어 유지
   - 0.7.0 — 에이전트 .md 하이브리드 변환 (instructions 영어, 부장 발화 한국어 유지) — 토큰 ~30~40% 절감
   - 0.7.1 — README + CLAUDE.md 0.5.3 → 0.7.0 동기화 (docs only)
-  - **0.7.2 publish 대기** — 인터랙티브 prompt 7개 한국어 통일 + 도구 선택 checkbox 에 Claude Code disabled 항목 추가 (시각적 명확화)
+  - 0.7.2 — 인터랙티브 prompt 7개 한국어 통일 + 도구 선택 checkbox 에 Claude Code 항목 추가
+  - **0.8.0 publish 대기** — Claude Code 토글 가능 + 도구별 모델 prompt 분기 (Codex / Gemini / Aider). 부장님 Touch ID 필요.
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
@@ -94,7 +95,17 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.5.7 → 0.5.8: 윈도우 `openBrowser()` 픽스 — `spawn('start', ...)` 비동기 ENOENT 로 톡방 프로세스가 죽던 버그. `cmd /c start "" <url>` 우회 + error 핸들러 추가.
   - 0.5.8 → 0.5.9: **윈도우에서 `init` 자체가 silent death 하던 치명 버그 픽스** — `index.ts` 가 `chat.ts` 를 top-level import 하던 탓에 better-sqlite3 native binding 로드 실패 시 `init` 코드가 한 줄도 못 돌고 즉사. 모든 커맨드를 dynamic `import()` 로 전환 — `init/status/adapt/update/migrate` 는 better-sqlite3 를 아예 안 건드림. (`bujang chat` 만 native binding 필요)
   - 0.5.9 → 0.5.10: **🔒 1:1 매핑 룰 강화** — director / cofounder 페르소나 + CLAUDE.md 템플릿 (한·영 6개 파일) 에 "**Agent 툴 호출 1번 = `harness_messages` INSERT 1행**" 룰 inline 명시. 병렬 N팀 호출 시 INSERT N건 + 사전 동의 1번 + 디스패치 직전·동시 INSERT. 트리비얼 1줄 픽스도 부장 명의 INSERT 1행 박기 (감사 추적). 사전 동의 → INSERT → Agent 호출 → 결과 INSERT 순서 고정.
-  - 0.6.2 → **0.7.0**: **🌏 에이전트 .md 하이브리드 변환** — 부장님 인사이트: "한국어가 LLM 컨텍스트 길고 영어 인지력 더 좋다." `shared/agents/ko/*.md` 18개 + `shared/templates/ko/CLAUDE.md.harness-section.template` 의 instructions / 룰 / 매핑 표 / 체크리스트를 영어로 변환 (~30~40% 토큰 절감 추정). 한국어 유지: 페르소나 호칭 (부장 / 대표님 / 공동대표 / 외부팀원), 부장 톡방 발화 ("지시 잘 받았습니다", "완료했습니다"), INSERT 메시지 본문 ("[NOTE] X.tsx 오타 1줄 직접 수정"), 보고 양식 발화. → "톡방 출력은 한국어, 시스템 프롬프트는 영어" 절충. minor bump (큰 콘텐츠 변경). sandbox-test Step 1 에 hybrid 패턴 검증 추가.
+  - 0.7.2 → **0.8.0**: **🛠 도구별 모델 prompt 분기 + Claude 토글** — 부장님 인사이트: "코덱스 / 제미니도 선택했으면 그 도구의 모델 선택창도 떠야 한다." `init` 인터랙티브에서 선택된 도구마다 모델 prompt 표시:
+    - Claude 선택 → Claude 모델 (balanced/keep/cost/quality/custom) — 기존 그대로 (frontmatter `model:` 진짜 적용)
+    - Codex 선택 → OpenAI 모델 (gpt-5 / gpt-5-codex / gpt-4-turbo / o1 / o1-mini / skip) — `AGENTS.md` 상단 메모 (가이드, 도구가 강제 인식 X)
+    - Gemini 선택 → Gemini 모델 (gemini-2.5-pro / 2.5-flash / 2.0-pro / 2.0-flash / skip) — `GEMINI.md` 상단 메모
+    - Aider 선택 → Aider 모델 (claude-opus-4-7 / claude-sonnet-4-6 / gpt-5 / gemini-2.5-pro / skip) — `.aider.conf.yml` 의 `model:` 필드 **진짜 적용** (Aider 가 시작 시 읽음)
+    - Cursor / Cline → 도구가 frontmatter model 안 읽음 → prompt 자체 없음 (통제 불가, 정직)
+    - 도구 선택 checkbox 의 Claude Code 항목 disabled 제거 → **체크 해제도 가능** (디폴트는 체크). `.claude/agents/` 는 SoT 라 어쨌든 깔림.
+    - CLI flag: `--codex-model=` / `--gemini-model=` / `--aider-model=` (CI 모드)
+    - sandbox-test Step 4.8 신규 — Codex/Gemini 메모 + Aider model 필드 박힘 검증.
+  - 0.6.1 → 0.6.2: **🇰🇷 `--help` 한국어 디폴트**
+  - 0.6.2 → 0.7.0: **🌏 에이전트 .md 하이브리드 변환** — 부장님 인사이트: "한국어가 LLM 컨텍스트 길고 영어 인지력 더 좋다." `shared/agents/ko/*.md` 18개 + `shared/templates/ko/CLAUDE.md.harness-section.template` 의 instructions / 룰 / 매핑 표 / 체크리스트를 영어로 변환 (~30~40% 토큰 절감 추정). 한국어 유지: 페르소나 호칭 (부장 / 대표님 / 공동대표 / 외부팀원), 부장 톡방 발화 ("지시 잘 받았습니다", "완료했습니다"), INSERT 메시지 본문 ("[NOTE] X.tsx 오타 1줄 직접 수정"), 보고 양식 발화. → "톡방 출력은 한국어, 시스템 프롬프트는 영어" 절충. minor bump (큰 콘텐츠 변경). sandbox-test Step 1 에 hybrid 패턴 검증 추가.
   - 0.6.1 → 0.6.2: **🇰🇷 `--help` 한국어 디폴트** — 부장님 컴플레인: "한국어로 나오게 해주고". `index.ts` 의 `HELP` 영어 상수 옆에 한국어 버전 추가. `--help` / `-h` / 인자 없을 때 한국어 출력. 영어 보고 싶으면 `--help-en` 으로 명시. sandbox-test Step 0.5 추가 (한국어/영어 키워드 검증).
   - 0.6.0 → 0.6.1: **📬 톡방 read-state SQLite 화** — 부장님 컴플레인: "어제 다 본 메시지인데 새 톡방 서버 띄울 때마다 안 읽음으로 다시 표시." 원인: 0.5.x~0.6.0 의 read 상태가 브라우저 `localStorage` 에 박혀있어 포트 7777 → 7778 바뀌면 도메인 다른 걸로 인식되어 리셋. 해결:
     - `.harness/chat.db` 에 신규 테이블 `harness_read_state(room, last_seen_at, updated_at)` 추가 — chat.db 가 SoT 라서 포트/서버/브라우저 무관 영구 보존.

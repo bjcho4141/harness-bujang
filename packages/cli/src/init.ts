@@ -73,6 +73,26 @@ type ModelPreset = 'balanced' | 'cost' | 'quality' | 'keep' | 'custom';
 const ALL_ADAPTERS: AdapterTarget[] = ['cursor', 'cline', 'aider', 'codex', 'gemini'];
 
 /**
+ * Per-tool model recommendations. Codex/Gemini are written as memo lines
+ * inside AGENTS.md / GEMINI.md (the tool itself doesn't enforce the model;
+ * users still pick it in their tool's settings — the memo is a guide).
+ * Aider is the only non-Claude tool where the model field is actually
+ * enforced (via .aider.conf.yml).
+ */
+const CODEX_MODELS = ['gpt-5', 'gpt-5-codex', 'gpt-4-turbo', 'o1', 'o1-mini'] as const;
+const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-pro', 'gemini-2.0-flash'] as const;
+const AIDER_MODELS = [
+  'claude-opus-4-7',
+  'claude-sonnet-4-6',
+  'gpt-5',
+  'gemini-2.5-pro',
+  '(skip)',
+] as const;
+type CodexModel  = typeof CODEX_MODELS[number]  | 'skip';
+type GeminiModel = typeof GEMINI_MODELS[number] | 'skip';
+type AiderModel  = typeof AIDER_MODELS[number];
+
+/**
  * Balanced cost/quality mapping. Heavyweight thinkers on opus, executors on
  * sonnet, fast/repetitive tasks on haiku. Picked for ~60-70% cost reduction
  * vs the all-opus baseline that ships in `shared/agents/`.
@@ -127,6 +147,13 @@ interface InitOptions {
    * Populated map = rewrite frontmatter `model:` lines on copy.
    */
   modelMap: Record<string, ModelTier>;
+  /**
+   * 0.8.0: per-tool model recommendation for non-Claude adapters. Empty =
+   * skip the per-tool model prompt (or user picked "skip" in interactive).
+   */
+  codexModel?:  CodexModel;
+  geminiModel?: GeminiModel;
+  aiderModel?:  AiderModel;
 }
 
 export async function runInit(args: string[]): Promise<void> {
@@ -183,7 +210,10 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(c.dim(`   Language:      ${opts.lang}`));
   console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? ' (local file)' : ' (cloud Postgres)'}`));
   console.log(c.dim(`   Tools:         claude${opts.adapters.length > 0 ? ` + ${opts.adapters.join(', ')}` : ' (only)'}`));
-  console.log(c.dim(`   Models:        ${describeModelMap(opts.modelMap)}`));
+  console.log(c.dim(`   Claude model:  ${describeModelMap(opts.modelMap)}`));
+  if (opts.codexModel  && opts.codexModel  !== 'skip')  console.log(c.dim(`   Codex model:   ${opts.codexModel} (memo)`));
+  if (opts.geminiModel && opts.geminiModel !== 'skip')  console.log(c.dim(`   Gemini model:  ${opts.geminiModel} (memo)`));
+  if (opts.aiderModel  && opts.aiderModel  !== '(skip)') console.log(c.dim(`   Aider model:   ${opts.aiderModel} (.aider.conf.yml)`));
   if (scan.framework.startsWith('Next.js')) {
     console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
   }
@@ -390,6 +420,11 @@ export async function runInit(args: string[]): Promise<void> {
       `--target=${opts.target}`,
       '--yes',
     ]);
+
+    // 6.6 (0.8.0) — apply per-tool model recommendations to the adapter outputs.
+    if (opts.codexModel  && opts.codexModel  !== 'skip')  await injectCodexModelMemo(opts.target, opts.codexModel);
+    if (opts.geminiModel && opts.geminiModel !== 'skip')  await injectGeminiModelMemo(opts.target, opts.geminiModel);
+    if (opts.aiderModel  && opts.aiderModel  !== '(skip)') await setAiderModel(opts.target, opts.aiderModel);
   }
 
   // 7. Final summary
@@ -470,14 +505,16 @@ async function promptInteractive(
     default: opts.chatBackend,
   })) as ChatBackend;
 
-  // Tool adapters — Claude Code is always installed (SoT). The choice list
-  // includes a disabled "Claude Code" row so the user can SEE it's already in.
-  // We strip the 'claude' value from the result before returning.
+  // Tool adapters — Claude Code is the SoT (always installed) but it's now
+  // toggleable in the prompt so users can see it. Even if unchecked, the
+  // .claude/agents/ folder still gets installed (needed for adapter conversion);
+  // we just print a hint at the end of init telling the user it's there as
+  // an SoT for future adapter refreshes.
   const isPreset = (t: AdapterTarget) => opts.adapters.includes(t);
   const adaptersRaw = (await checkbox({
-    message: '도구 선택 — Claude Code 는 자동 설치 (필수). 추가 도구 없으면 그냥 Enter.',
+    message: '도구 선택 — 체크된 도구만 셋업됩니다. (.claude/agents/ 는 어댑터 SoT 라 항상 깔립니다)',
     choices: [
-      { name: 'Claude Code     (.claude/agents/) — 자동 설치 (필수)',         value: 'claude', checked: true, disabled: '(자동)' },
+      { name: 'Claude Code     (.claude/agents/)',                            value: 'claude', checked: true },
       { name: 'Cursor          (.cursor/rules/bujang-*.mdc)',                value: 'cursor', checked: isPreset('cursor') },
       { name: 'Codex / Copilot (AGENTS.md)',                                  value: 'codex',  checked: isPreset('codex')  },
       { name: 'Cline           (.clinerules/bujang-*.md)',                    value: 'cline',  checked: isPreset('cline')  },
@@ -486,29 +523,81 @@ async function promptInteractive(
     ],
     required: false,
   })) as Array<AdapterTarget | 'claude'>;
-  // Drop the 'claude' sentinel — Claude Code is always installed regardless.
+  const claudeChecked = adaptersRaw.includes('claude');
+  // 'claude' is informational only — it doesn't go into adapters[] (which
+  // drives the adapter fan-out for non-Claude tools).
   const adapters = adaptersRaw.filter((t): t is AdapterTarget => t !== 'claude');
 
-  // Model mapping — only meaningful for Claude Code (other tools pick their own
-  // model inside their UI). Show the prompt anyway since Claude Code is always
-  // installed.
-  const preset = (await select({
-    message: '에이전트별 Claude 모델? (.claude/agents/ 에만 적용 — 다른 도구는 자체 모델 관리)',
-    choices: [
-      { name: 'balanced — opus / sonnet / haiku 균형 매핑 (추천, 비용 ~60% 절감)', value: 'balanced' },
-      { name: 'keep     — 각 에이전트 기본 모델 그대로',                            value: 'keep'     },
-      { name: 'cost     — 전부 haiku (가장 저렴, 빠름)',                            value: 'cost'     },
-      { name: 'quality  — 전부 opus (가장 비싸고, 품질 최상)',                       value: 'quality'  },
-      { name: 'custom   — 에이전트별 직접 선택 (18개 prompt)',                      value: 'custom'   },
-    ],
-    default: 'balanced',
-  })) as ModelPreset;
+  // ---- Per-tool model prompts ---------------------------------------------
+  // Each tool gets its own model prompt — only when that tool was checked.
+  // Claude / Aider model fields are actually enforced by the tool. Codex /
+  // Gemini get written as a memo line inside AGENTS.md / GEMINI.md (a guide,
+  // since those tools don't read a model: field from those files).
 
+  // 1. Claude — only if Claude Code is checked
   let modelMap: Record<string, ModelTier> = {};
-  if (preset === 'custom') {
-    modelMap = await promptCustomModelMap();
-  } else {
-    modelMap = resolvePreset(preset);
+  if (claudeChecked) {
+    const preset = (await select({
+      message: '🟣 Claude 에이전트 모델 매핑? [.claude/agents/ frontmatter 에 박힘 — Claude Code 가 진짜 적용]',
+      choices: [
+        { name: 'balanced — opus / sonnet / haiku 균형 매핑 (추천, 비용 ~60% 절감)', value: 'balanced' },
+        { name: 'keep     — 각 에이전트 기본 모델 그대로',                            value: 'keep'     },
+        { name: 'cost     — 전부 haiku (가장 저렴, 빠름)',                            value: 'cost'     },
+        { name: 'quality  — 전부 opus (가장 비싸고, 품질 최상)',                       value: 'quality'  },
+        { name: 'custom   — 에이전트별 직접 선택 (18개 prompt)',                      value: 'custom'   },
+      ],
+      default: 'balanced',
+    })) as ModelPreset;
+    modelMap = preset === 'custom' ? await promptCustomModelMap() : resolvePreset(preset);
+  }
+
+  // 2. Codex — only if Codex is checked
+  let codexModel: CodexModel | undefined;
+  if (adapters.includes('codex')) {
+    codexModel = (await select({
+      message: '🟢 Codex 권장 모델? [AGENTS.md 상단 메모로 박힘 — 실제 모델은 코덱스 안에서 사용자가 픽]',
+      choices: [
+        { name: 'gpt-5         (최신)',           value: 'gpt-5'        },
+        { name: 'gpt-5-codex   (코딩 특화)',       value: 'gpt-5-codex'  },
+        { name: 'gpt-4-turbo',                    value: 'gpt-4-turbo'  },
+        { name: 'o1            (추론 특화)',        value: 'o1'           },
+        { name: 'o1-mini       (가벼운 추론)',     value: 'o1-mini'      },
+        { name: 'skip          (메모 안 박음)',     value: 'skip'         },
+      ],
+      default: 'gpt-5-codex',
+    })) as CodexModel;
+  }
+
+  // 3. Gemini — only if Gemini is checked
+  let geminiModel: GeminiModel | undefined;
+  if (adapters.includes('gemini')) {
+    geminiModel = (await select({
+      message: '🔵 Gemini 권장 모델? [GEMINI.md 상단 메모로 박힘 — 실제 모델은 Gemini 도구 안에서 사용자가 픽]',
+      choices: [
+        { name: 'gemini-2.5-pro     (최신, 가장 똑똑)',  value: 'gemini-2.5-pro'   },
+        { name: 'gemini-2.5-flash   (빠르고 저렴)',      value: 'gemini-2.5-flash' },
+        { name: 'gemini-2.0-pro',                       value: 'gemini-2.0-pro'   },
+        { name: 'gemini-2.0-flash',                     value: 'gemini-2.0-flash' },
+        { name: 'skip               (메모 안 박음)',      value: 'skip'             },
+      ],
+      default: 'gemini-2.5-pro',
+    })) as GeminiModel;
+  }
+
+  // 4. Aider — only if Aider is checked
+  let aiderModel: AiderModel | undefined;
+  if (adapters.includes('aider')) {
+    aiderModel = (await select({
+      message: '🟡 Aider 모델? [.aider.conf.yml 의 model 필드에 박힘 — Aider 가 시작 시 진짜 적용]',
+      choices: [
+        { name: 'claude-opus-4-7    (최고 품질)',                value: 'claude-opus-4-7'   },
+        { name: 'claude-sonnet-4-6  (균형)',                     value: 'claude-sonnet-4-6' },
+        { name: 'gpt-5              (OpenAI 최신)',              value: 'gpt-5'             },
+        { name: 'gemini-2.5-pro     (Google 최신)',              value: 'gemini-2.5-pro'    },
+        { name: '(skip)             (model 필드 안 박음)',         value: '(skip)'            },
+      ],
+      default: 'claude-sonnet-4-6',
+    })) as AiderModel;
   }
 
   let installTemplate = opts.installTemplate;
@@ -519,7 +608,11 @@ async function promptInteractive(
     });
   }
 
-  return { ...opts, lang, chatBackend, installTemplate, adapters, modelMap };
+  return {
+    ...opts,
+    lang, chatBackend, installTemplate, adapters, modelMap,
+    codexModel, geminiModel, aiderModel,
+  };
 }
 
 async function promptCustomModelMap(): Promise<Record<string, ModelTier>> {
@@ -584,6 +677,13 @@ function parseArgs(args: string[]): InitOptions {
     modelMap = resolvePreset(modelsRaw as Exclude<ModelPreset, 'custom'>);
   }
 
+  // 0.8.0: per-tool model recommendations (CI-mode flags). Validation is
+  // permissive — we accept any string the user provides for codex/gemini/aider
+  // models (LLM model names change frequently).
+  const codexModel  = getFlag(args, '--codex-model')  as CodexModel  | undefined;
+  const geminiModel = getFlag(args, '--gemini-model') as GeminiModel | undefined;
+  const aiderModel  = getFlag(args, '--aider-model')  as AiderModel  | undefined;
+
   return {
     lang,
     target:           path.resolve(targetRaw),
@@ -597,6 +697,9 @@ function parseArgs(args: string[]): InitOptions {
     yes:              args.includes('--yes') || args.includes('-y'),
     adapters,
     modelMap,
+    codexModel,
+    geminiModel,
+    aiderModel,
   };
 }
 
@@ -725,6 +828,63 @@ function printBackendInstructions(backend: ChatBackend, commitChat: boolean): vo
     console.log(`   ${c.bold('4.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
   }
   console.log();
+}
+
+/**
+ * 0.8.0: write a "Recommended model: <name>" memo into AGENTS.md after the
+ * first heading. AGENTS.md / GEMINI.md don't have a standard model field, so
+ * this is a guide for users — they still pick the model in their tool's UI.
+ */
+async function injectCodexModelMemo(target: string, model: string): Promise<void> {
+  const fp = path.join(target, 'AGENTS.md');
+  if (!(await exists(fp))) return;
+  const raw = await fs.readFile(fp, 'utf8');
+  const memo = `\n> 💡 **Recommended model**: \`${model}\` — pick this in your Codex / Copilot settings for best results with this harness.\n`;
+  if (raw.includes('Recommended model')) return;
+  // Insert after the first H1 line.
+  const lines = raw.split('\n');
+  const h1Idx = lines.findIndex((l) => l.startsWith('# '));
+  if (h1Idx < 0) {
+    await fs.writeFile(fp, memo + raw);
+    return;
+  }
+  lines.splice(h1Idx + 1, 0, memo);
+  await fs.writeFile(fp, lines.join('\n'));
+  console.log(c.dim(`   ✓ AGENTS.md ← Codex 권장 모델 메모: ${model}`));
+}
+
+async function injectGeminiModelMemo(target: string, model: string): Promise<void> {
+  const fp = path.join(target, 'GEMINI.md');
+  if (!(await exists(fp))) return;
+  const raw = await fs.readFile(fp, 'utf8');
+  const memo = `\n> 💡 **Recommended model**: \`${model}\` — pick this in Gemini CLI / Antigravity / Code Assist settings.\n`;
+  if (raw.includes('Recommended model')) return;
+  const lines = raw.split('\n');
+  const h1Idx = lines.findIndex((l) => l.startsWith('# '));
+  if (h1Idx < 0) {
+    await fs.writeFile(fp, memo + raw);
+    return;
+  }
+  lines.splice(h1Idx + 1, 0, memo);
+  await fs.writeFile(fp, lines.join('\n'));
+  console.log(c.dim(`   ✓ GEMINI.md ← Gemini 권장 모델 메모: ${model}`));
+}
+
+/**
+ * 0.8.0: append `model: <name>` to .aider.conf.yml. Aider actually reads this
+ * field on startup — unlike Codex/Gemini memos, this is enforced by the tool.
+ */
+async function setAiderModel(target: string, model: string): Promise<void> {
+  const fp = path.join(target, '.aider.conf.yml');
+  if (!(await exists(fp))) return;
+  let raw = await fs.readFile(fp, 'utf8');
+  if (/^model:\s*\S+/m.test(raw)) {
+    raw = raw.replace(/^model:\s*\S+/m, `model: ${model}`);
+  } else {
+    raw = raw.trimEnd() + `\n# Added by harness-bujang init\nmodel: ${model}\n`;
+  }
+  await fs.writeFile(fp, raw);
+  console.log(c.dim(`   ✓ .aider.conf.yml ← model: ${model}`));
 }
 
 /**
