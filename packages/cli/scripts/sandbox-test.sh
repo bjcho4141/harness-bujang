@@ -35,6 +35,18 @@ cleanup() {
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
+# Step 0 — --version reports the package.json version (not a hardcoded string)
+# ---------------------------------------------------------------------------
+yellow "== STEP 0 == --version (dynamic from package.json)"
+EXPECTED_VERSION="$(node -e "console.log(require('$CLI_ROOT/package.json').version)")"
+ACTUAL_VERSION="$("${RUN[@]}" --version)"
+if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+  red "  ✖ --version mismatch: expected $EXPECTED_VERSION, got $ACTUAL_VERSION"
+  exit 1
+fi
+green "  ✓ --version → $ACTUAL_VERSION (matches package.json)"
+
+# ---------------------------------------------------------------------------
 # Step 1 — init (Korean, sqlite, --yes)
 # ---------------------------------------------------------------------------
 yellow "== STEP 1 == init --yes --lang=ko"
@@ -220,6 +232,48 @@ grep -q "CUSTOM_USER_RULE_DO_NOT_LOSE" "$SANDBOX/.claude/agents/dev-team.md" || 
 }
 green "  ✓ update added back missing files"
 green "  ✓ user customization in dev-team.md preserved"
+
+# ---------------------------------------------------------------------------
+# Step 4.7 — init with --tools= and --models= (multi-tool + balanced preset)
+#
+# Verifies 0.6.0:
+#   - --tools=codex,gemini auto-fans-out adapters during init
+#   - --models=balanced rewrites frontmatter model: per agent
+# ---------------------------------------------------------------------------
+yellow "== STEP 4.7 == init --tools=codex,gemini --models=balanced (0.6.0)"
+SANDBOX2="${SANDBOX}-multi"
+mkdir -p "$SANDBOX2"
+"${RUN[@]}" init --target="$SANDBOX2" --yes --lang=ko \
+  --tools=codex,gemini --models=balanced > /dev/null
+
+# Adapters fan-out
+assert_file "$SANDBOX2/.claude/agents/director.md"   # SoT always installed
+assert_file "$SANDBOX2/AGENTS.md"                    # codex
+assert_file "$SANDBOX2/GEMINI.md"                    # gemini
+assert_file "$SANDBOX2/.gemini/styleguide.md"        # gemini PR review
+
+# But NOT the un-selected ones
+if [[ -d "$SANDBOX2/.cursor" ]]; then
+  red "  ✖ .cursor/ should NOT exist when --tools=codex,gemini"
+  exit 1
+fi
+if [[ -d "$SANDBOX2/.clinerules" ]]; then
+  red "  ✖ .clinerules/ should NOT exist when --tools=codex,gemini"
+  exit 1
+fi
+green "  ✓ extra adapters limited to codex + gemini"
+
+# Model frontmatter rewritten per balanced preset
+DIR_MODEL="$(grep -E '^model:' "$SANDBOX2/.claude/agents/director.md" | head -1)"
+DEV_MODEL="$(grep -E '^model:' "$SANDBOX2/.claude/agents/dev-team.md" | head -1)"
+VER_MODEL="$(grep -E '^model:' "$SANDBOX2/.claude/agents/verifier-team.md" | head -1)"
+[[ "$DIR_MODEL" == "model: opus"   ]] || { red "  ✖ director.md expected opus, got: $DIR_MODEL"; exit 1; }
+[[ "$DEV_MODEL" == "model: sonnet" ]] || { red "  ✖ dev-team.md expected sonnet, got: $DEV_MODEL"; exit 1; }
+[[ "$VER_MODEL" == "model: haiku"  ]] || { red "  ✖ verifier-team.md expected haiku, got: $VER_MODEL"; exit 1; }
+green "  ✓ balanced preset: director=opus, dev=sonnet, verifier=haiku"
+
+# Cleanup the second sandbox
+rm -rf "$SANDBOX2"
 
 # ---------------------------------------------------------------------------
 # Step 5 — migrate (smoke test — sqlite → sqlite no-op succeeds)

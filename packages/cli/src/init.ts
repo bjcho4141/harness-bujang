@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { select, confirm } from '@inquirer/prompts';
+import { select, confirm, checkbox } from '@inquirer/prompts';
 import { scanProject } from './scan.js';
 import { renderTemplate } from './template.js';
 
@@ -66,6 +66,37 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
 }
 
 type ChatBackend = 'sqlite' | 'supabase';
+type AdapterTarget = 'cursor' | 'cline' | 'aider' | 'codex' | 'gemini';
+type ModelTier = 'opus' | 'sonnet' | 'haiku';
+type ModelPreset = 'balanced' | 'cost' | 'quality' | 'keep' | 'custom';
+
+const ALL_ADAPTERS: AdapterTarget[] = ['cursor', 'cline', 'aider', 'codex', 'gemini'];
+
+/**
+ * Balanced cost/quality mapping. Heavyweight thinkers on opus, executors on
+ * sonnet, fast/repetitive tasks on haiku. Picked for ~60-70% cost reduction
+ * vs the all-opus baseline that ships in `shared/agents/`.
+ */
+const BALANCED_MAPPING: Record<string, ModelTier> = {
+  director:           'opus',
+  cofounder:          'opus',
+  'architect-team':   'opus',
+  consultant:         'opus',
+  'security-team':    'opus',
+  'db-guard-team':    'opus',
+  'dev-team':         'sonnet',
+  'code-review-team': 'sonnet',
+  'qa-team':          'sonnet',
+  'doc-sync-team':    'sonnet',
+  'research-team':    'sonnet',
+  'analysis-team':    'sonnet',
+  'script-team':      'sonnet',
+  'verifier-team':    'haiku',
+  'image-team':       'haiku',
+  'voice-team':       'haiku',
+  'edit-team':        'haiku',
+  'content-qa-team':  'haiku',
+};
 
 interface InitOptions {
   lang: 'ko' | 'en';
@@ -84,6 +115,18 @@ interface InitOptions {
   editClaudeMd: boolean;
   seedLearningLog: boolean;
   yes: boolean;
+  /**
+   * Extra tool adapters to install after `.claude/agents/` (the SoT) lands.
+   * Claude Code agents are always installed; this controls Cursor / Cline /
+   * Aider / Codex / Gemini fan-out.
+   */
+  adapters: AdapterTarget[];
+  /**
+   * Per-agent Claude model override. Empty object = leave each agent's
+   * frontmatter `model:` field untouched (the values shipped in shared/).
+   * Populated map = rewrite frontmatter `model:` lines on copy.
+   */
+  modelMap: Record<string, ModelTier>;
 }
 
 export async function runInit(args: string[]): Promise<void> {
@@ -139,6 +182,8 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(c.bold('📋 Configuration'));
   console.log(c.dim(`   Language:      ${opts.lang}`));
   console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? ' (local file)' : ' (cloud Postgres)'}`));
+  console.log(c.dim(`   Tools:         claude${opts.adapters.length > 0 ? ` + ${opts.adapters.join(', ')}` : ' (only)'}`));
+  console.log(c.dim(`   Models:        ${describeModelMap(opts.modelMap)}`));
   if (scan.framework.startsWith('Next.js')) {
     console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
   }
@@ -207,7 +252,7 @@ export async function runInit(args: string[]): Promise<void> {
     COMPLETED_DOCS_PATTERN: 'docs/완료_*.md',
   };
 
-  // 3. Copy agents
+  // 3. Copy agents (with optional per-agent model frontmatter override)
   console.log(c.bold(`📂 Installing agents to .claude/agents/`));
   const agentsSrc = path.join(assets.agents, opts.lang);
   const agentsDst = path.join(opts.target, '.claude/agents');
@@ -221,8 +266,12 @@ export async function runInit(args: string[]): Promise<void> {
       continue;
     }
     const raw = await fs.readFile(path.join(agentsSrc, f), 'utf8');
-    await fs.writeFile(dst, renderTemplate(raw, context));
-    console.log(`   ${c.green('✓')}  ${f}`);
+    const slug = f.replace(/\.md$/, '');
+    const override = opts.modelMap[slug];
+    const rendered = renderTemplate(raw, context);
+    const final = override ? overrideModelFrontmatter(rendered, override) : rendered;
+    await fs.writeFile(dst, final);
+    console.log(`   ${c.green('✓')}  ${f}${override ? c.dim(`  → model: ${override}`) : ''}`);
   }
   console.log();
 
@@ -330,6 +379,19 @@ export async function runInit(args: string[]): Promise<void> {
     }
   }
 
+  // 6.5 Run adapters for any extra tools the user picked. .claude/agents/ is
+  //     the SoT, so we always have the source ready by this point.
+  if (opts.adapters.length > 0) {
+    console.log(c.bold('🔁 Fanning out to extra tool adapters'));
+    console.log(c.dim(`   Targets: ${opts.adapters.join(', ')}`));
+    const { runAdapt } = await import('./adapt.js');
+    await runAdapt([
+      `--to=${opts.adapters.join(',')}`,
+      `--target=${opts.target}`,
+      '--yes',
+    ]);
+  }
+
   // 7. Final summary
   console.log(c.bold(c.green('✅ Done.')));
   console.log();
@@ -408,6 +470,44 @@ async function promptInteractive(
     default: opts.chatBackend,
   })) as ChatBackend;
 
+  // Tool adapters — Claude Code is always installed; this fans out to others.
+  // Pre-check anything the user passed via --tools.
+  const isPreset = (t: AdapterTarget) => opts.adapters.includes(t);
+  const adapters = (await checkbox({
+    message:
+      'Extra tool adapters? (Claude Code is always installed at .claude/agents/ — these add files for OTHER tools)',
+    choices: [
+      { name: 'Cursor          (.cursor/rules/bujang-*.mdc)',                value: 'cursor', checked: isPreset('cursor') },
+      { name: 'Codex / Copilot (AGENTS.md)',                                  value: 'codex',  checked: isPreset('codex')  },
+      { name: 'Cline           (.clinerules/bujang-*.md)',                    value: 'cline',  checked: isPreset('cline')  },
+      { name: 'Aider           (CONVENTIONS.md + .aider.conf.yml)',           value: 'aider',  checked: isPreset('aider')  },
+      { name: 'Gemini / Antigravity (GEMINI.md + .gemini/styleguide.md)',     value: 'gemini', checked: isPreset('gemini') },
+    ],
+    required: false,
+  })) as AdapterTarget[];
+
+  // Model mapping — only meaningful for Claude Code (other tools pick their own
+  // model inside their UI). Show the prompt anyway since Claude Code is always
+  // installed.
+  const preset = (await select({
+    message: 'Per-agent Claude model? (only affects .claude/agents/ — other tools manage models themselves)',
+    choices: [
+      { name: 'balanced — opus / sonnet / haiku mix (recommended, ~60% cost cut)', value: 'balanced' },
+      { name: 'keep     — leave each agent\'s default model untouched',            value: 'keep'     },
+      { name: 'cost     — all haiku (cheapest, fastest)',                          value: 'cost'     },
+      { name: 'quality  — all opus (most expensive, highest quality)',             value: 'quality'  },
+      { name: 'custom   — pick model per agent (18 prompts)',                      value: 'custom'   },
+    ],
+    default: 'balanced',
+  })) as ModelPreset;
+
+  let modelMap: Record<string, ModelTier> = {};
+  if (preset === 'custom') {
+    modelMap = await promptCustomModelMap();
+  } else {
+    modelMap = resolvePreset(preset);
+  }
+
   let installTemplate = opts.installTemplate;
   if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
     installTemplate = await confirm({
@@ -416,7 +516,27 @@ async function promptInteractive(
     });
   }
 
-  return { ...opts, lang, chatBackend, installTemplate };
+  return { ...opts, lang, chatBackend, installTemplate, adapters, modelMap };
+}
+
+async function promptCustomModelMap(): Promise<Record<string, ModelTier>> {
+  const out: Record<string, ModelTier> = {};
+  const slugs = Object.keys(BALANCED_MAPPING);
+  console.log();
+  console.log(c.dim(`   Custom mapping — pick a model for each of ${slugs.length} agents.`));
+  for (const slug of slugs) {
+    const tier = (await select({
+      message: `${slug.padEnd(20)}`,
+      choices: [
+        { name: 'opus   (heaviest, smartest)',        value: 'opus'   },
+        { name: 'sonnet (balanced)',                  value: 'sonnet' },
+        { name: 'haiku  (lightest, fastest, cheap)',  value: 'haiku'  },
+      ],
+      default: BALANCED_MAPPING[slug] ?? 'sonnet',
+    })) as ModelTier;
+    out[slug] = tier;
+  }
+  return out;
 }
 
 function parseArgs(args: string[]): InitOptions {
@@ -429,6 +549,38 @@ function parseArgs(args: string[]): InitOptions {
     throw new Error(`--chat must be "sqlite" or "supabase", got "${chatBackend}"`);
   }
   const targetRaw = getFlag(args, '--target') ?? '.';
+
+  // --tools=cursor,codex   or   --tools=all   (Claude Code is always implied)
+  const toolsRaw = getFlag(args, '--tools');
+  let adapters: AdapterTarget[] = [];
+  if (toolsRaw) {
+    const parts = toolsRaw === 'all'
+      ? ALL_ADAPTERS.slice()
+      : toolsRaw.split(',').map((t) => t.trim()).filter(Boolean);
+    for (const t of parts) {
+      // "claude" is a no-op (Claude Code is always installed) — accept silently
+      if (t === 'claude' || t === 'claude-code') continue;
+      if (!ALL_ADAPTERS.includes(t as AdapterTarget)) {
+        throw new Error(
+          `Unknown tool "${t}" in --tools. Allowed: claude, ${ALL_ADAPTERS.join(', ')}, all`,
+        );
+      }
+      if (!adapters.includes(t as AdapterTarget)) adapters.push(t as AdapterTarget);
+    }
+  }
+
+  // --models=balanced | cost | quality | keep   (no `custom` from CLI — interactive only)
+  const modelsRaw = getFlag(args, '--models') as ModelPreset | undefined;
+  let modelMap: Record<string, ModelTier> = {};
+  if (modelsRaw) {
+    if (!['balanced', 'cost', 'quality', 'keep'].includes(modelsRaw)) {
+      throw new Error(
+        `--models must be one of: balanced, cost, quality, keep (got "${modelsRaw}")`,
+      );
+    }
+    modelMap = resolvePreset(modelsRaw as Exclude<ModelPreset, 'custom'>);
+  }
+
   return {
     lang,
     target:           path.resolve(targetRaw),
@@ -440,7 +592,18 @@ function parseArgs(args: string[]): InitOptions {
     editClaudeMd:     !args.includes('--no-claude-md'),
     seedLearningLog:  !args.includes('--no-learning-log'),
     yes:              args.includes('--yes') || args.includes('-y'),
+    adapters,
+    modelMap,
   };
+}
+
+function resolvePreset(preset: Exclude<ModelPreset, 'custom'>): Record<string, ModelTier> {
+  if (preset === 'keep') return {};
+  if (preset === 'balanced') return { ...BALANCED_MAPPING };
+  const tier: ModelTier = preset === 'cost' ? 'haiku' : 'opus';
+  const out: Record<string, ModelTier> = {};
+  for (const k of Object.keys(BALANCED_MAPPING)) out[k] = tier;
+  return out;
 }
 
 function getFlag(args: string[], name: string): string | undefined {
@@ -559,6 +722,34 @@ function printBackendInstructions(backend: ChatBackend, commitChat: boolean): vo
     console.log(`   ${c.bold('4.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
   }
   console.log();
+}
+
+/**
+ * Replace the `model:` line inside the YAML frontmatter only. The agent body
+ * may legitimately contain "model:" in prose, so we scope the replacement to
+ * the leading `---\n…\n---` block.
+ */
+function overrideModelFrontmatter(content: string, model: ModelTier): string {
+  if (!content.startsWith('---\n')) return content;
+  const end = content.indexOf('\n---\n', 4);
+  if (end < 0) return content;
+  const fmRaw = content.slice(0, end);
+  const rest = content.slice(end);
+  const newFm = /^model:\s*\S+/m.test(fmRaw)
+    ? fmRaw.replace(/^model:\s*\S+/m, `model: ${model}`)
+    : fmRaw + `\nmodel: ${model}`;
+  return newFm + rest;
+}
+
+function describeModelMap(map: Record<string, ModelTier>): string {
+  if (Object.keys(map).length === 0) return 'keep (use each agent\'s default)';
+  const counts: Record<ModelTier, number> = { opus: 0, sonnet: 0, haiku: 0 };
+  for (const v of Object.values(map)) counts[v]++;
+  const parts: string[] = [];
+  for (const tier of ['opus', 'sonnet', 'haiku'] as const) {
+    if (counts[tier] > 0) parts.push(`${counts[tier]} ${tier}`);
+  }
+  return parts.join(' · ');
 }
 
 function stackReviewRules(framework: string): string {

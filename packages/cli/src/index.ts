@@ -8,6 +8,23 @@
 // before *any* command (even `init`) prints a single byte. Lazy-loading
 // keeps init/status/adapt/update/migrate completely free of that risk.
 
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function readVersion(): Promise<string> {
+  // dist/index.js → ../package.json (npm pack always includes the manifest)
+  try {
+    const pkgRaw = await fs.readFile(path.resolve(__dirname, '..', 'package.json'), 'utf8');
+    return (JSON.parse(pkgRaw).version as string) ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 const c = {
   bold:    (s: string) => `\x1b[1m${s}\x1b[22m`,
   dim:     (s: string) => `\x1b[2m${s}\x1b[22m`,
@@ -33,6 +50,10 @@ ${c.bold('Options for init:')}
   --lang=<ko|en>           Agent language (default: ko — full 부장 persona)
   --chat=<sqlite|supabase> Chat-room backend (default: sqlite — local file, no setup)
   --commit-chat            Don't gitignore .harness/ (for solo cross-machine sync via git)
+  --tools=<list>           Extra tool adapters: cursor,cline,aider,codex,gemini,all
+                           (Claude Code is always installed at .claude/agents/)
+  --models=<preset>        Per-agent Claude model preset: balanced (recommended),
+                           keep (default), cost (all haiku), quality (all opus)
   --target=<path>          Project root (default: cwd)
   --framework=<name>       Override detected framework
   --db=<name>              Override detected project DB (separate from --chat)
@@ -119,7 +140,7 @@ async function main() {
       break;
     case '--version':
     case '-v':
-      console.log('0.5.9');
+      console.log(await readVersion());
       break;
     case '--help':
     case '-h':

@@ -71,6 +71,7 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 
 - [x] **npm publish** — `harness-bujang@0.5.10` 라이브 (2026-05-10). https://www.npmjs.com/package/harness-bujang
   - 0.4.0 → 0.5.10 까지 11개 패치 한 번에 publish (Touch ID 1번)
+  - **0.6.0 publish 대기** — multi-tool init + per-agent 모델 매핑. 부장님 Touch ID 필요.
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
@@ -87,7 +88,14 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.5.6 → 0.5.7: **`bujang chat` better-sqlite3 마이그레이션** — system sqlite3 CLI shell-out → better-sqlite3 (네이티브 prebuild). 매 쿼리 process spawn 비용 제거. (단 0.5.7 에는 윈도우 브라우저 자동열기 버그 잔존)
   - 0.5.7 → 0.5.8: 윈도우 `openBrowser()` 픽스 — `spawn('start', ...)` 비동기 ENOENT 로 톡방 프로세스가 죽던 버그. `cmd /c start "" <url>` 우회 + error 핸들러 추가.
   - 0.5.8 → 0.5.9: **윈도우에서 `init` 자체가 silent death 하던 치명 버그 픽스** — `index.ts` 가 `chat.ts` 를 top-level import 하던 탓에 better-sqlite3 native binding 로드 실패 시 `init` 코드가 한 줄도 못 돌고 즉사. 모든 커맨드를 dynamic `import()` 로 전환 — `init/status/adapt/update/migrate` 는 better-sqlite3 를 아예 안 건드림. (`bujang chat` 만 native binding 필요)
-  - 0.5.9 → **0.5.10**: **🔒 1:1 매핑 룰 강화** — director / cofounder 페르소나 + CLAUDE.md 템플릿 (한·영 6개 파일) 에 "**Agent 툴 호출 1번 = `harness_messages` INSERT 1행**" 룰 inline 명시. 병렬 N팀 호출 시 INSERT N건 + 사전 동의 1번 + 디스패치 직전·동시 INSERT. 트리비얼 1줄 픽스도 부장 명의 INSERT 1행 박기 (감사 추적). 사전 동의 → INSERT → Agent 호출 → 결과 INSERT 순서 고정.
+  - 0.5.9 → 0.5.10: **🔒 1:1 매핑 룰 강화** — director / cofounder 페르소나 + CLAUDE.md 템플릿 (한·영 6개 파일) 에 "**Agent 툴 호출 1번 = `harness_messages` INSERT 1행**" 룰 inline 명시. 병렬 N팀 호출 시 INSERT N건 + 사전 동의 1번 + 디스패치 직전·동시 INSERT. 트리비얼 1줄 픽스도 부장 명의 INSERT 1행 박기 (감사 추적). 사전 동의 → INSERT → Agent 호출 → 결과 INSERT 순서 고정.
+  - 0.5.10 → **0.6.0**: **🔁 멀티 도구 init + 에이전트별 모델 매핑** —
+    - `bujang init` 인터랙티브 모드에 `checkbox` 추가 → Cursor / Codex / Cline / Aider / Gemini 5개 어댑터 multi-select. Claude Code (`.claude/agents/`) 는 항상 SoT 로 깔리고, 추가 어댑터만 선택. init 끝에 `runAdapt()` 자동 호출 — 두 단계 (`init` → `adapt`) 가 한 번에.
+    - `--tools=cursor,codex,gemini,all` flag (CI/`--yes` 모드용).
+    - 모델 프리셋 `select` prompt — `balanced` (디폴트, opus/sonnet/haiku 균형 매핑, ~60% 비용 절감) / `keep` (frontmatter 그대로) / `cost` (전부 haiku) / `quality` (전부 opus) / `custom` (18팀 차례로 select). `--models=balanced` flag.
+    - 에이전트 frontmatter `model:` 라인을 init 시 사용자 선택대로 치환 — `.claude/agents/*.md` 의 SoT 안 건드리고 사용자 프로젝트에 적용.
+    - 🐛 **`--version` 하드코딩 픽스** — `index.ts` 가 `console.log('0.5.9')` 하드코딩이라 0.5.10 라이브 후에도 `--version` 이 0.5.9 출력하던 버그. `package.json` 에서 dynamic read 로 전환.
+    - sandbox-test 확장: Step 0 (`--version` ↔ package.json 매칭) + Step 4.7 (multi-tool + balanced 프리셋 검증).
 - [x] **GitHub Public 전환** — https://github.com/bjcho4141/harness-bujang
 - [x] **2FA 셋업** — npm 계정 `bjcho4141` 보안키(passkey) 등록됨
 - [x] **본인 검증** — `/Users/cho/Desktop/4141/testtest` 에서 0.1.0 → 0.3.0 전 버전 동작 확인. 카톡 UI 톡방 실제 화면 확인 완료 (2026-05-05)
