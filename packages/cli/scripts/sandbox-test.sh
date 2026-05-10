@@ -422,6 +422,134 @@ green "  ✓ .aider.conf.yml ← model: claude-sonnet-4-6 (Aider 진짜 적용)"
 rm -rf "$SANDBOX3"
 
 # ---------------------------------------------------------------------------
+# Step 4.9 — 0.8.2: Next.js auto-install + scaffolding
+#
+# Verifies (all without hitting the real registry — uses stub package.json
+# that already lists the deps so install is a no-op):
+#   - SQLite mode → next.config patched with serverExternalPackages: ['better-sqlite3']
+#   - Supabase mode → .env.local.example scaffolded with all 5 keys
+#   - --no-install-deps respected (peer dep install skipped)
+# ---------------------------------------------------------------------------
+yellow "== STEP 4.9 == 0.8.2 — Next.js auto-install + scaffolding"
+
+# --- 4.9a SQLite mode: stub Next.js project with deps already present ------
+SANDBOX_NEXT="${SANDBOX}-nextjs-sqlite"
+mkdir -p "$SANDBOX_NEXT"
+cat > "$SANDBOX_NEXT/package.json" <<'EOF'
+{
+  "name": "stub-next-app",
+  "version": "0.0.0",
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.10"
+  }
+}
+EOF
+cat > "$SANDBOX_NEXT/next.config.mjs" <<'EOF'
+const nextConfig = {
+  reactStrictMode: true,
+};
+export default nextConfig;
+EOF
+
+# --no-install-deps so we don't hit the real npm registry. Auto-detect would
+# also no-op because deps are already listed in package.json above, but the
+# explicit flag keeps the test hermetic.
+"${RUN[@]}" init --target="$SANDBOX_NEXT" --yes --lang=ko --chat=sqlite \
+  --no-install-deps > /tmp/harness-sb-nextjs-sqlite.log 2>&1 || {
+  red "  ✖ SQLite Next.js init failed"
+  cat /tmp/harness-sb-nextjs-sqlite.log
+  exit 1
+}
+
+# Template should have landed (Next.js detected via next.config.mjs)
+[[ -d "$SANDBOX_NEXT/src/lib/harness-db"   ]] || { red "  ✖ src/lib/harness-db missing"; exit 1; }
+[[ -d "$SANDBOX_NEXT/src/app/admin/harness" ]] || { red "  ✖ src/app/admin/harness missing"; exit 1; }
+[[ -d "$SANDBOX_NEXT/src/app/api/harness"   ]] || { red "  ✖ src/app/api/harness missing"; exit 1; }
+green "  ✓ Next.js detected → admin/api/lib templates copied"
+
+# next.config.mjs should now have serverExternalPackages with better-sqlite3
+grep -qE "serverExternalPackages.*better-sqlite3" "$SANDBOX_NEXT/next.config.mjs" || {
+  red "  ✖ next.config.mjs missing serverExternalPackages: ['better-sqlite3']"
+  cat "$SANDBOX_NEXT/next.config.mjs"
+  exit 1
+}
+green "  ✓ next.config.mjs ← serverExternalPackages: ['better-sqlite3'] (auto-patched)"
+
+# Re-run init — patch should be idempotent (no duplicate entries)
+"${RUN[@]}" init --target="$SANDBOX_NEXT" --yes --lang=ko --chat=sqlite \
+  --no-install-deps > /dev/null 2>&1
+DUP_COUNT="$(grep -oE "better-sqlite3" "$SANDBOX_NEXT/next.config.mjs" | wc -l | tr -d ' ')"
+if [[ "$DUP_COUNT" -ne 1 ]]; then
+  red "  ✖ next.config patch not idempotent: 'better-sqlite3' appears $DUP_COUNT times"
+  cat "$SANDBOX_NEXT/next.config.mjs"
+  exit 1
+fi
+green "  ✓ next.config patch idempotent (re-run = same content)"
+
+# --no-install-deps must have actually skipped install — verify the log
+grep -q "auto-install skipped\|peer dep" /tmp/harness-sb-nextjs-sqlite.log || {
+  yellow "  ⚠ --no-install-deps log marker not found (non-fatal)"
+}
+green "  ✓ --no-install-deps respected"
+
+# --- 4.9b Supabase mode: stub Next.js project ------------------------------
+SANDBOX_SB="${SANDBOX}-nextjs-supabase"
+mkdir -p "$SANDBOX_SB"
+cat > "$SANDBOX_SB/package.json" <<'EOF'
+{
+  "name": "stub-supabase-app",
+  "version": "0.0.0",
+  "dependencies": {
+    "next": "^15.0.0",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
+EOF
+cat > "$SANDBOX_SB/next.config.js" <<'EOF'
+module.exports = {
+  reactStrictMode: true,
+};
+EOF
+
+"${RUN[@]}" init --target="$SANDBOX_SB" --yes --lang=ko --chat=supabase \
+  --no-install-deps > /tmp/harness-sb-nextjs-supabase.log 2>&1 || {
+  red "  ✖ Supabase Next.js init failed"
+  cat /tmp/harness-sb-nextjs-supabase.log
+  exit 1
+}
+
+# .env.local.example scaffolded with all 5 keys + header
+assert_file "$SANDBOX_SB/.env.local.example"
+for key in "HARNESS_DB=supabase" "NEXT_PUBLIC_SUPABASE_URL" "SUPABASE_SERVICE_ROLE_KEY" "HARNESS_WRITE_SECRET" "SUPER_ADMIN_EMAILS"; do
+  grep -q "^${key}" "$SANDBOX_SB/.env.local.example" || {
+    red "  ✖ .env.local.example missing key: $key"
+    cat "$SANDBOX_SB/.env.local.example"
+    exit 1
+  }
+done
+green "  ✓ .env.local.example ← Harness-Bujang Supabase 키 5개 (placeholders)"
+
+# Re-run = idempotent (same key count)
+"${RUN[@]}" init --target="$SANDBOX_SB" --yes --lang=ko --chat=supabase \
+  --no-install-deps > /dev/null 2>&1
+DUP_KEYS="$(grep -c '^HARNESS_DB=supabase' "$SANDBOX_SB/.env.local.example")"
+if [[ "$DUP_KEYS" -ne 1 ]]; then
+  red "  ✖ .env.local.example scaffold not idempotent: HARNESS_DB= appears $DUP_KEYS times"
+  exit 1
+fi
+green "  ✓ .env.local.example scaffold idempotent"
+
+# Cleanup
+rm -rf "$SANDBOX_NEXT" "$SANDBOX_SB"
+rm -f /tmp/harness-sb-nextjs-sqlite.log /tmp/harness-sb-nextjs-supabase.log
+
+# ---------------------------------------------------------------------------
 # Step 5 — migrate (smoke test — sqlite → sqlite no-op succeeds)
 #
 # A real sqlite ↔ supabase round-trip would need network + creds, so we just

@@ -192,6 +192,12 @@ interface InitOptions {
   installTemplate: boolean;
   editClaudeMd: boolean;
   seedLearningLog: boolean;
+  /**
+   * 0.8.2: When true (default), `init` runs `<pm> add` for the peer deps the
+   * SQLite/Supabase chat-room UI needs (better-sqlite3 / @supabase/supabase-js).
+   * Set false via `--no-install-deps` for CI / sandboxed environments.
+   */
+  installDeps: boolean;
   yes: boolean;
   /**
    * Extra tool adapters to install after `.claude/agents/` (the SoT) lands.
@@ -452,7 +458,29 @@ export async function runInit(args: string[]): Promise<void> {
         await ensureGitignore(opts.target, ['.harness/']);
       }
 
-      printBackendInstructions(opts.chatBackend, opts.commitChat);
+      // 6.4 (0.8.2) — Auto-install peer deps the chat-room UI needs:
+      //   SQLite   → better-sqlite3 + @types/better-sqlite3
+      //   Supabase → @supabase/supabase-js
+      // Without this, `next dev` blows up with module-not-found before the
+      // user even sees the chat room. Skip via --no-install-deps for CI.
+      if (opts.installDeps) {
+        await ensurePeerDeps(opts.target, opts.chatBackend);
+      } else {
+        console.log(c.dim('📦 --no-install-deps — peer dep auto-install skipped'));
+        console.log();
+      }
+
+      // 6.5 (0.8.2) — Backend-specific config follow-ups.
+      //   SQLite   → patch next.config with serverExternalPackages: ['better-sqlite3']
+      //              so Webpack/Turbopack doesn't try to bundle the native binding.
+      //   Supabase → scaffold .env.local.example with the keys the user must fill in.
+      if (opts.chatBackend === 'sqlite') {
+        await patchNextConfig(opts.target);
+      } else {
+        await scaffoldEnvExample(opts.target);
+      }
+
+      printBackendInstructions(opts.chatBackend, opts.commitChat, opts.installDeps);
     } else {
       console.log(
         `${c.yellow('ℹ︎ Chat-room UI (Next.js admin route) skipped')} ` +
@@ -815,6 +843,7 @@ function parseArgs(args: string[]): InitOptions {
     installTemplate:  !args.includes('--no-template'),
     editClaudeMd:     !args.includes('--no-claude-md'),
     seedLearningLog:  !args.includes('--no-learning-log'),
+    installDeps:      !args.includes('--no-install-deps'),
     yes:              args.includes('--yes') || args.includes('-y'),
     adapters,
     modelMap,
@@ -904,21 +933,189 @@ async function ensureGitignore(target: string, lines: string[]): Promise<void> {
   await fs.writeFile(gitignorePath, existing + block);
 }
 
-function printBackendInstructions(backend: ChatBackend, commitChat: boolean): void {
+/**
+ * 0.8.2: install the chat-room UI's peer deps in the user's project so
+ * `next dev` doesn't blow up with module-not-found before they see anything.
+ *   SQLite mode    → better-sqlite3 + @types/better-sqlite3
+ *   Supabase mode  → @supabase/supabase-js
+ * Already-installed deps are detected via package.json and skipped.
+ * On install failure (offline / native compile fail), prints the manual
+ * fallback command so the user isn't stuck.
+ */
+async function ensurePeerDeps(target: string, backend: ChatBackend): Promise<void> {
+  const { detectPM, readDeps, installDeps, buildAddCmd } = await import('./pm.js');
+  const pm = await detectPM(target);
+  const existing = await readDeps(target);
+
+  const wanted: { name: string; dev?: boolean }[] = [];
+  if (backend === 'sqlite') {
+    if (!existing['better-sqlite3'])        wanted.push({ name: 'better-sqlite3' });
+    if (!existing['@types/better-sqlite3']) wanted.push({ name: '@types/better-sqlite3', dev: true });
+  } else {
+    if (!existing['@supabase/supabase-js']) wanted.push({ name: '@supabase/supabase-js' });
+  }
+
+  if (wanted.length === 0) {
+    console.log(c.dim(`📦 Peer deps already installed (${backend}) — skipped`));
+    console.log();
+    return;
+  }
+
+  const summary = wanted.map((d) => d.name + (d.dev ? c.dim(' (dev)') : '')).join(', ');
+  console.log(c.bold(`📦 Auto-installing peer deps via ${pm}`));
+  console.log(c.dim(`   ${summary}`));
+  console.log();
+
+  const result = await installDeps(target, pm, wanted);
+  if (result.ok) {
+    console.log(c.green(`   ✓ installed`));
+  } else {
+    console.log(c.yellow(`   ⚠ install failed: ${result.err ?? 'unknown'}`));
+    console.log(c.dim(`     수동으로 실행해주세요 / Run manually:`));
+    const prod = wanted.filter((d) => !d.dev).map((d) => d.name);
+    const dev  = wanted.filter((d) => d.dev).map((d) => d.name);
+    if (prod.length > 0) console.log(c.dim(`       $ ${buildAddCmd(pm, prod, false)}`));
+    if (dev.length  > 0) console.log(c.dim(`       $ ${buildAddCmd(pm, dev,  true)}`));
+  }
+  console.log();
+}
+
+/**
+ * 0.8.2: idempotently add `'better-sqlite3'` to next.config's
+ * `serverExternalPackages` array. Required because Webpack/Turbopack can't
+ * bundle a native binding — they must defer to Node's runtime require.
+ *
+ * Strategy (conservative, no AST):
+ *   1. Already includes 'better-sqlite3' in serverExternalPackages → no-op.
+ *   2. Has serverExternalPackages array → splice 'better-sqlite3' in.
+ *   3. Has a config object literal → inject as a top-level property.
+ *   4. Anything weirder → print the manual snippet (don't risk corrupting).
+ */
+async function patchNextConfig(target: string): Promise<void> {
+  const candidates = ['next.config.ts', 'next.config.mjs', 'next.config.js'];
+  let configPath: string | null = null;
+  for (const cand of candidates) {
+    if (await exists(path.join(target, cand))) {
+      configPath = path.join(target, cand);
+      break;
+    }
+  }
+  if (!configPath) {
+    console.log(c.dim(`📝 next.config.{js,mjs,ts} not found — serverExternalPackages patch skipped`));
+    console.log();
+    return;
+  }
+
+  const filename = path.basename(configPath);
+  const raw = await fs.readFile(configPath, 'utf8');
+
+  // Case 1 — already covered.
+  if (/serverExternalPackages\s*:\s*\[[^\]]*['"]better-sqlite3['"]/.test(raw)) {
+    console.log(c.dim(`📝 ${filename} 이미 'better-sqlite3' 등록됨 — skipped`));
+    console.log();
+    return;
+  }
+
+  // Case 2 — has serverExternalPackages array but missing better-sqlite3.
+  if (/serverExternalPackages\s*:\s*\[/.test(raw)) {
+    const patched = raw.replace(
+      /serverExternalPackages\s*:\s*\[/,
+      `serverExternalPackages: ['better-sqlite3', `,
+    );
+    await fs.writeFile(configPath, patched);
+    console.log(c.green(`   ✓ ${filename} ← 'better-sqlite3' added to serverExternalPackages`));
+    console.log();
+    return;
+  }
+
+  // Case 3 — try to inject into a config object literal. We match the
+  // opening `{` of `const X = {`, `const X: T = {`, `module.exports = {`,
+  // or `export default {`. The optional `(?:\s*:\s*[^=]+)?` swallows TS
+  // type annotations like `: NextConfig` between the identifier and `=`.
+  const injectPattern = /((?:const\s+\w+(?:\s*:\s*[^=]+)?\s*=\s*|module\.exports\s*=\s*|export\s+default\s*)\{)/;
+  if (injectPattern.test(raw)) {
+    const patched = raw.replace(
+      injectPattern,
+      `$1\n  serverExternalPackages: ['better-sqlite3'],`,
+    );
+    await fs.writeFile(configPath, patched);
+    console.log(c.green(`   ✓ ${filename} ← injected serverExternalPackages: ['better-sqlite3']`));
+    console.log();
+    return;
+  }
+
+  // Case 4 — fall back to printing the snippet.
+  console.log(c.yellow(`📝 ${filename} 자동 패치 못 했습니다 — 다음을 추가해주세요:`));
+  console.log(c.dim(`     {`));
+  console.log(c.dim(`       serverExternalPackages: ['better-sqlite3'],`));
+  console.log(c.dim(`       // ...rest of config`));
+  console.log(c.dim(`     }`));
+  console.log();
+}
+
+/**
+ * 0.8.2: append Supabase-mode env keys to .env.local.example so the user
+ * doesn't have to remember the exact names. Idempotent — keys already
+ * present in the file are skipped.
+ */
+async function scaffoldEnvExample(target: string): Promise<void> {
+  const fp = path.join(target, '.env.local.example');
+  let raw = '';
+  if (await exists(fp)) raw = await fs.readFile(fp, 'utf8');
+
+  const HEADER = '# --- Harness-Bujang (Supabase mode) ---';
+  const KEYS = [
+    'HARNESS_DB=supabase',
+    'NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co',
+    'SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here',
+    'HARNESS_WRITE_SECRET=generate-with-openssl-rand-hex-32',
+    'SUPER_ADMIN_EMAILS=you@example.com',
+  ];
+
+  const missing = KEYS.filter((line) => {
+    const key = line.split('=')[0]!;
+    return !new RegExp(`^${key}=`, 'm').test(raw);
+  });
+
+  if (missing.length === 0 && raw.includes(HEADER)) {
+    console.log(c.dim(`📝 .env.local.example 이미 모든 Supabase 키 있음 — skipped`));
+    console.log();
+    return;
+  }
+
+  const sep = raw && !raw.endsWith('\n') ? '\n' : '';
+  const block = `${sep}\n${HEADER}\n${missing.join('\n')}\n`;
+  await fs.writeFile(fp, raw + block);
+  console.log(c.green(`   ✓ .env.local.example ← Supabase 키 ${missing.length}개 추가 (placeholders)`));
+  console.log(c.dim(`     → 실제 값은 Supabase 프로젝트에서 복사해서 .env.local 에 넣어주세요.`));
+  console.log();
+}
+
+function printBackendInstructions(
+  backend: ChatBackend,
+  commitChat: boolean,
+  installedDeps: boolean,
+): void {
+  // Step numbering shifts depending on whether auto-install ran (0.8.2).
+  // If we already installed the SQLite driver / supabase-js for the user,
+  // we skip that "step 1" and renumber the rest.
+  let n = 1;
   if (backend === 'sqlite') {
     console.log(c.bold(c.cyan('📋 SQLite mode (default) — next steps:')));
     console.log();
-    console.log(`   ${c.bold('1.')} Install the SQLite driver in your project:`);
-    console.log(`      ${c.dim('$')} ${c.bold('npm i better-sqlite3')}`);
-    console.log(`      ${c.dim('$')} ${c.bold('npm i -D @types/better-sqlite3')}`);
-    console.log();
-    console.log(`   ${c.bold('2.')} (optional) Add to ${c.bold('.env.local')}:`);
+    if (!installedDeps) {
+      console.log(`   ${c.bold(`${n++}.`)} Install the SQLite driver in your project:`);
+      console.log(`      ${c.dim('$')} ${c.bold('npm i better-sqlite3')}`);
+      console.log(`      ${c.dim('$')} ${c.bold('npm i -D @types/better-sqlite3')}`);
+      console.log();
+    }
+    console.log(`   ${c.bold(`${n++}.`)} (optional) Add to ${c.bold('.env.local')}:`);
     console.log(`      ${c.dim('HARNESS_DB=sqlite                  # default — can be omitted')}`);
     console.log(`      ${c.dim('HARNESS_SQLITE_PATH=./.harness/chat.db    # default — can be omitted')}`);
     console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>     # for bot/script writes')}`);
     console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com # comma-separated')}`);
     console.log();
-    console.log(`   ${c.bold('3.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
+    console.log(`   ${c.bold(`${n++}.`)} Run your dev server and visit ${c.bold('/admin/harness')}.`);
     console.log();
     if (commitChat) {
       console.log(c.dim(`   📦 ${c.bold('--commit-chat')} mode: .harness/ NOT added to .gitignore.`));
@@ -932,21 +1129,26 @@ function printBackendInstructions(backend: ChatBackend, commitChat: boolean): vo
   } else {
     console.log(c.bold(c.cyan('📋 Supabase mode — next steps:')));
     console.log();
-    console.log(`   ${c.bold('1.')} Apply the migrations to your Supabase project:`);
+    if (!installedDeps) {
+      console.log(`   ${c.bold(`${n++}.`)} Install the Supabase client in your project:`);
+      console.log(`      ${c.dim('$')} ${c.bold('npm i @supabase/supabase-js')}`);
+      console.log();
+    }
+    console.log(`   ${c.bold(`${n++}.`)} Apply the migrations to your Supabase project:`);
     console.log(`      ${c.dim('$')} ${c.bold('supabase db push')}`);
     console.log(`      ${c.dim('   (or run them manually via psql / SQL editor)')}`);
     console.log();
-    console.log(`   ${c.bold('2.')} Add to ${c.bold('.env.local')}:`);
+    console.log(`   ${c.bold(`${n++}.`)} Fill in the keys in ${c.bold('.env.local')} ${c.dim('(template scaffolded at .env.local.example)')}:`);
     console.log(`      ${c.bold('HARNESS_DB=supabase')}`);
     console.log(`      ${c.bold('NEXT_PUBLIC_SUPABASE_URL=...')}`);
     console.log(`      ${c.bold('SUPABASE_SERVICE_ROLE_KEY=...')}`);
     console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>')}`);
     console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com')}`);
     console.log();
-    console.log(`   ${c.bold('3.')} Implement ${c.bold('verifySuperAdmin()')} at ${c.bold('@/lib/utils/admin')}`);
+    console.log(`   ${c.bold(`${n++}.`)} Implement ${c.bold('verifySuperAdmin()')} at ${c.bold('@/lib/utils/admin')}`);
     console.log(`      (see ${c.dim('packages/template/README.md')} for an example).`);
     console.log();
-    console.log(`   ${c.bold('4.')} Run your dev server and visit ${c.bold('/admin/harness')}.`);
+    console.log(`   ${c.bold(`${n++}.`)} Run your dev server and visit ${c.bold('/admin/harness')}.`);
   }
   console.log();
 }

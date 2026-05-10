@@ -79,6 +79,14 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.7.2 — 인터랙티브 prompt 7개 한국어 통일 + 도구 선택 checkbox 에 Claude Code 항목 추가
   - 0.8.0 — Claude 토글 가능 + 도구별 모델 prompt 분기 (Codex / Gemini / Aider 단일 모델 픽)
   - **0.8.1 publish 대기** — Codex / Gemini 도 Claude 와 동일한 5-프리셋 (balanced/keep/cost/quality/custom) + per-agent 메모. 0.8.0 publish 직후 부장님 추가 요청 — 같은 0.8.0 으로 publish 불가 (npm immutable) 라 0.8.1 patch.
+  - **0.8.2 publish 대기** — **🚀 zero-friction Next.js 셋업** — 부장님 컴플레인: "톡방 열어줘 했을 때 자동으로 열렸으면, 에러 없이." 원인: `bujang init` 가 SQLite 어댑터 (`src/lib/harness-db/sqlite.ts`) 를 사용자 Next.js 프로젝트에 복사해놓고 `better-sqlite3` peer dep 은 print 안내문만 띄우고 끝. 사용자가 `npm run dev` 돌리면 module-not-found 로 폭발. 픽스:
+    - 신규 `pm.ts` — package manager 자동 감지 (`packageManager` 필드 → lockfile precedence: pnpm > yarn > bun > npm). 설치 헬퍼 `installDeps()` 가 PM별 정확한 add 명령 (pnpm add / yarn add -D / bun add -d / npm i -D) 을 spawn.
+    - `init.ts` `ensurePeerDeps()` — SQLite 면 `better-sqlite3` + `@types/better-sqlite3` (dev), Supabase 면 `@supabase/supabase-js` 자동 설치. 이미 `package.json` deps 에 있으면 skip. 설치 실패 시 (오프라인 / native 빌드 실패) 명확한 에러 + 수동 fallback 명령 출력.
+    - `init.ts` `patchNextConfig()` — SQLite 모드 시 `next.config.{js,mjs,ts}` 에 `serverExternalPackages: ['better-sqlite3']` 자동 추가 (Webpack/Turbopack 이 native binding 못 묶음 → 외부화 필수). 3가지 케이스 idempotent: (1) 이미 등록 → no-op (2) array 있는데 better-sqlite3 만 없음 → splice (3) 빈 config → top-level inject. 못 잡으면 수동 snippet 출력.
+    - `init.ts` `scaffoldEnvExample()` — Supabase 모드 시 `.env.local.example` 에 5개 키 (`HARNESS_DB`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `HARNESS_WRITE_SECRET`, `SUPER_ADMIN_EMAILS`) placeholder 자동 추가. 이미 있으면 merge, 없는 키만 append. idempotent.
+    - `--no-install-deps` opt-out flag (CI / 격리 환경용). 한·영 help 양쪽 추가.
+    - `printBackendInstructions()` 시그니처에 `installedDeps: boolean` 추가 — auto-install 성공했으면 "1. Install the SQLite driver" 단계 자동 생략 + 나머지 단계 재번호.
+    - sandbox-test Step 4.9 — stub Next.js 프로젝트 (package.json + next.config.mjs) 생성 후 SQLite/Supabase 양쪽 init 검증. `--no-install-deps` 로 hermetic 유지 (실제 npm registry 안 침). re-run idempotency 까지 검증.
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트

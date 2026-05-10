@@ -60,6 +60,7 @@ ${c.bold('init 옵션:')}
   --no-template            톡방 UI 설치 건너뛰기
   --no-claude-md           CLAUDE.md 수정 건너뛰기
   --no-learning-log        학습 로그 시드 건너뛰기
+  --no-install-deps        peer dep 자동 설치 건너뛰기 (better-sqlite3 / @supabase/supabase-js)
   --yes, -y                프롬프트 건너뛰고 덮어쓰기 (CI / 스크립트용)
 
 ${c.dim('--yes 안 붙이면 인터랙티브 셋업 (언어 / 백엔드 / 도구 / 모델 프리셋 prompt).')}
@@ -143,6 +144,7 @@ ${c.bold('Options for init:')}
   --no-template            Skip chat-room UI install
   --no-claude-md           Skip CLAUDE.md edit
   --no-learning-log        Skip learning log seed
+  --no-install-deps        Skip auto-install of peer deps (better-sqlite3 / @supabase/supabase-js)
   --yes, -y                Skip prompts and overwrite (non-interactive — for CI / scripts)
 
 ${c.dim('Run without --yes for an interactive setup (prompts for language, backend, etc.).')}
