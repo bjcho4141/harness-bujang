@@ -75,6 +75,7 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
   - 0.6.1 — 톡방 read-state SQLite 화 (포트 변경에도 unread 카운트 유지)
   - 0.6.2 — `--help` 한국어 디폴트 + `--help-en` 영어 유지
   - 0.7.0 — 에이전트 .md 하이브리드 변환 (instructions 영어, 부장 발화 한국어 유지) — 토큰 ~30~40% 절감
+  - **0.7.1 — 문서 동기화** — README.md (로드맵 0.5.3 → 0.7.0 + 옵션 안내 + 도구 호환표) + CLAUDE.md Phase 5 압축 + 신규 작업 항목. **publish 선택사항** (docs only — npm 페이지 README 갱신 시에만 publish 필요)
   - 0.1.0 → 0.2.0: 인터랙티브 init (`@inquirer/prompts`) + 슬래시 커맨드 directive 화
   - 0.2.0 → 0.2.1: 인터랙티브 모드에서 기존 설치 감지 시 overwrite 프롬프트 추가 (선택이 silently ignored 되던 버그 수정)
   - 0.2.1 → 0.3.0: `bujang chat` 명령 — 비-Next.js standalone viewer (Node http + embedded HTML + system sqlite3) + sandbox e2e 검증 스크립트
@@ -138,46 +139,34 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 
 ### 🤖 Phase 5 — Claude 작업 항목
 
-#### A. 어댑터 확장 (다른 도구 호환) ✅ v0.4.0에 완료
+#### ✅ 완료된 큰 마일스톤 (요약)
 
-- [x] Cursor 어댑터 — `.claude/agents/` → `.cursor/rules/bujang-*.mdc` (frontmatter 포함)
-- [x] Cline 어댑터 — `.claude/agents/` → `.clinerules/bujang-*.md`
-- [x] Aider 어댑터 — `CONVENTIONS.md` + `.aider.conf.yml` (read: 자동 추가)
-- [x] **Codex 어댑터** — `AGENTS.md` (Codex CLI / Copilot Coding Agent / Cody)
-- [x] **Gemini 어댑터** — `GEMINI.md` + `.gemini/styleguide.md` (Antigravity / Gemini CLI / Code Assist 워크스페이스 + GitHub PR 리뷰)
-- [x] `bujang adapt --to=all` — 5개 타깃 한 번에
-- [x] sandbox-test 에 어댑터 검증 단계 추가 (10개 파일 + 콘텐츠 체크)
+상세 entry 는 위 "끝난 것" 섹션의 버전별 라인 + README 로드맵 참조:
 
-#### B. 비-Next.js standalone viewer ✅ v0.3.0에 완료
+- **0.2.0 ~ 0.2.1** — 인터랙티브 `init` (`@inquirer/prompts`) + 기존 설치 감지 시 overwrite 프롬프트
+- **0.2.0** — 슬래시 커맨드 4종 (`/bujang-init`, `/bujang-status`, `/bujang-team`, `/bujang-report`) 실제 액션 directive 화
+- **0.3.0** — `bujang chat` standalone viewer (Node http + embedded HTML + 카톡 UI). Rails/Django/Rust 호환
+- **0.3.0/0.4.0** — sandbox-test e2e 검증 스크립트 (`npm run sandbox-test`)
+- **0.4.0** — 어댑터 5종 (`bujang adapt --to=cursor|cline|aider|codex|gemini|all`) → 9+ 도구 호환
+- **0.5.0** — 콘텐츠 7팀 추가 (research/analysis/script/image/voice/edit/content-qa) → 총 16팀
+- **0.5.1** — 공동대표 페르소나 + 외부팀원 톡방 + 사전 동의 프로토콜 + PRD/사업 계획 매핑
+- **0.5.2** — `bujang update` 안전 업데이트 (기존 파일 절대 안 건드림)
+- **0.5.7** — `bujang chat` better-sqlite3 마이그레이션 (system sqlite3 shell-out → 임베디드 prebuild)
+- **0.5.8/0.5.9** — 윈도우 zero-install 정상화 (`openBrowser` ENOENT + `init` silent death 픽스)
+- **0.5.10** — 🔒 1:1 매핑 룰 (Agent 호출 1번 = `harness_messages` INSERT 1행)
+- **0.6.0** — 멀티 도구 init (`--tools=`) + 에이전트별 모델 매핑 (`--models=balanced` 등) — 토큰 ~60% 절감
+- **0.6.1** — 톡방 read-state SQLite 화 (`harness_read_state` 테이블 + `GET/POST /api/read-state`) — 포트 변경 영구 대응
+- **0.6.2** — `--help` 한국어 디폴트 + `--help-en` 영어 유지
+- **0.7.0** — 에이전트 .md 하이브리드 변환 (instructions 영어 + 페르소나 호칭·발화 한국어) — 토큰 30~40% 절감
 
-- [x] `bujang chat` 명령 — Node http + embedded HTML + system sqlite3 shell-out
-- [x] KakaoTalk UI 단일 HTML로 포팅 (Tailwind CDN + vanilla JS, 폴링 2초)
-- [x] SQLite 직접 읽기 (Next.js 라우트 불필요)
-- [x] Rails/Django/Rust 사용자도 톡방 사용 가능 — `npx harness-bujang chat` 한 줄
-- [x] 입력 바도 동작 — `대표님` 메시지 인서트 가능 (Director 픽업 가능)
-- [x] DB 없으면 `--create` 로 빈 DB + 시드 row 생성
+#### 🚧 미완료 / 다음 단계 후보
 
-#### C. 슬래시 커맨드 실제 구현 ✅ v0.2.0에 완료
-
-- [x] `/bujang-init` — `npx harness-bujang@latest init` 직접 호출 지시
-- [x] `/bujang-status` — `npx harness-bujang status .` 실행 + DB 쿼리 옵션
-- [x] `/bujang-team` — Agent tool 호출 + harness_messages INSERT SQL 명세
-- [x] `/bujang-report` — SQLite/Supabase 백엔드 자동 감지 + 집계 로직
-
-#### D. 인터랙티브 init ✅ v0.2.0/0.2.1에 완료
-
-- [x] `@inquirer/prompts` 추가 — `--yes` 미지정 시 select/confirm 프롬프트
-- [x] 자동 감지 결과 보여주고 사용자 확인
-- [x] 기존 설치 감지 시 overwrite 프롬프트 (0.2.1)
-
-#### E. 검증 확장 ✅ v0.3.0에 완료 (일부)
-
-- [x] sandbox e2e 검증 스크립트 — `scripts/sandbox-test.sh` (init → status → chat 전 흐름)
-- [x] `npm run sandbox-test` 한 줄로 실행 가능
-- [x] 한국어 에이전트 적용 검증 (director.md에 "부장" 포함 여부)
-- [x] chat HTTP 엔드포인트 검증 (GET / · GET /api/messages · POST /api/messages)
-- [ ] migrate 명령 실제 동작 검증 (SQLite 데이터 → Supabase 이전) — 다음 세션
-- [ ] better-sqlite3 실제 install 후 Next.js 라우트 통합 e2e — 다음 세션
+- [ ] **migrate 명령 실제 동작 검증** — SQLite 데이터 → Supabase 이전 e2e (현재는 args parse smoke test 만)
+- [ ] **better-sqlite3 + Next.js 라우트 통합 e2e** — `packages/template/` 의 admin/harness 라우트와 SQLite 어댑터 결합 검증
+- [ ] **`bujang update --force-overwrite` 옵션** — 기존 파일도 강제 갱신 (백업 자동 생성 + diff 표시) — 0.7.0 같이 큰 변경 후 사용자가 손쉽게 따라오게
+- [ ] **Plugin 마켓플레이스 등록** — `/plugin install harness-bujang` (저장소 prefix 생략) 가능하게
+- [ ] **데모 GIF / Cast 영상** — 부장 호출 → 톡방 INSERT → 통합 보고 흐름 시각화
+- [ ] **`harness-bujang@1.0.0`** — 실사용 피드백 누적 후 안정 버전
 
 ## 부장님 환경 컨텍스트 (다음 세션 Claude가 알아야 할 것)
 

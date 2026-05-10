@@ -83,11 +83,20 @@ npx harness-bujang@latest chat
 ### 그 외 자주 쓰는 명령
 
 ```bash
-# Cursor / Cline / Aider / Codex / Antigravity / Gemini 동시 호환
+# 설치 시 도구 어댑터 + 모델 매핑 한 번에 (0.6.0+)
+npx harness-bujang@latest init --yes \
+  --tools=cursor,codex,gemini \
+  --models=balanced            # opus 6 + sonnet 7 + haiku 5, 토큰 ~60% 절감
+
+# Cursor / Cline / Aider / Codex / Antigravity / Gemini 사후 추가
 npx harness-bujang@latest adapt --to=all
 
 # 새 버전 받기 — 기존 파일 안 건드리고 신규 팀만 추가 (안전)
 npx harness-bujang@latest update
+
+# 한국어 도움말 (디폴트, 0.6.2+) / 영어 도움말
+npx harness-bujang@latest --help
+npx harness-bujang@latest --help-en
 ```
 
 > ## ⚠️ 처음 vs 업데이트 — 이거 꼭 알고 가세요
@@ -198,6 +207,18 @@ Director (Main Claude persona)
 
 18 personas (1 director + 1 cofounder + 9 engineering + 7 content), 4 slash commands, full Korean / English variants. See [packages/cli/README.md](./packages/cli/README.md) for usage.
 
+**One-line install + multi-tool fan-out** (0.6.0+):
+
+```bash
+npx harness-bujang init --yes \
+  --tools=cursor,codex,gemini \    # one-shot adapter fan-out
+  --models=balanced                # opus / sonnet / haiku mix, ~60% cost cut
+```
+
+**Hybrid agent prompts** (0.7.0+): instructions in English, persona names (부장 / 대표님) and chat-room utterances in Korean — ~30–40% token savings while keeping the Korean-style harness identity. Use `--lang=en` for full English variant.
+
+**Persistent read state** (0.6.1+): chat-room "unread" markers live in `harness_read_state` SQLite table — survives port changes, server restarts, and even syncs across machines when chat.db is shared.
+
 ### 아키텍처 한눈에
 
 ```mermaid
@@ -281,11 +302,17 @@ graph TD
 ### 길 B — CLI (어떤 환경이든)
 
 ```bash
-# 인터랙티브 설치 — 언어/백엔드 등을 화면에서 골라가며 (기본: 한국어 부장)
+# 인터랙티브 설치 — 언어 / 백엔드 / 도구 어댑터 / 모델 매핑 등을 화면에서 (기본: 한국어 부장)
 npx harness-bujang init
 
 # 외운 사람용 — 질문 다 스킵, 한국어 부장 즉시 설치
 npx harness-bujang init --yes
+
+# 멀티 도구 사용자 — Claude Code + Codex + Gemini 한 번에 (0.6.0+)
+npx harness-bujang init --yes --tools=codex,gemini
+
+# 모델 프리셋 (0.6.0+) — balanced (추천, ~60% 비용 절감) / cost (전부 haiku) / quality (전부 opus)
+npx harness-bujang init --yes --models=balanced
 
 # 영어 페르소나로 가고 싶을 때
 npx harness-bujang init --lang=en
@@ -294,7 +321,8 @@ npx harness-bujang init --lang=en
 npx harness-bujang init --target=./my-app
 ```
 
-→ Cursor / Cline / Aider 등 다른 도구도 `.claude/agents/`만 인식하면 동일하게 동작합니다.
+→ Cursor / Cline / Aider / Codex / Gemini 모두 `--tools=` 한 번으로 어댑터 자동 깔림 (0.6.0+).
+→ Claude Code agents 의 instructions 는 영어, 부장 발화는 한국어 hybrid 톤 (0.7.0+) — LLM 토큰 ~30~40% 절감 + 부장 페르소나 정체성 유지.
 
 #### 톡방 보기 — 어떤 스택이든 한 줄
 
@@ -327,8 +355,10 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 | [`packages/template`](./packages/template) | Next.js + Postgres 톡방 UI 자산 | — | CLI가 자동 복사 |
 
 공유 자산(SSoT):
-- [`shared/agents/ko/`](./shared/agents/ko) · [`shared/agents/en/`](./shared/agents/en) — 에이전트 정의 10개 × 2 언어
+- [`shared/agents/ko/`](./shared/agents/ko) · [`shared/agents/en/`](./shared/agents/en) — 에이전트 정의 **18개** × 2 언어 (director + cofounder + 코드 9팀 + 콘텐츠 7팀)
 - [`shared/templates/ko/`](./shared/templates/ko) · [`shared/templates/en/`](./shared/templates/en) — `CLAUDE.md` 섹션 + 학습로그 시드
+
+> 0.7.0+ ko 버전은 **하이브리드 톤** — instructions / 룰 / 매핑 표는 영어 (LLM 효율), 페르소나 호칭 (부장 / 대표님 / 공동대표) 과 톡방 발화 ("완료했습니다", "판단 부탁드립니다") 는 한국어 유지.
 
 ---
 
@@ -359,14 +389,19 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 | TypeORM / Sequelize | ✅ | ⚠️ |
 | (없음) | ✅ | ❌ 톡방 UI 미설치 |
 
-### Claude Code 도구 호환
+### Claude Code 도구 호환 (0.4.0+ 어댑터로 9+ 도구 호환)
 
-| 도구 | agents 인식 | 슬래시 커맨드 | 비고 |
+| 도구 | agents 인식 | 어댑터 명령 | 비고 |
 |---|---|---|---|
-| Claude Code (공식) | ✅ | ✅ | 풀 호환 |
-| Cursor | ⚠️ | ❌ | `.cursor/rules/` 매핑 필요 |
-| Cline | ⚠️ | ❌ | `.clinerules/` 매핑 필요 |
-| Aider | ❌ | ❌ | 페르소나 컨셉만 차용 가능 |
+| Claude Code (공식) | ✅ | (자동) | 풀 호환 — `.claude/agents/*.md` 직접 |
+| Cursor | ✅ | `--to=cursor` | `.cursor/rules/bujang-*.mdc` 자동 생성 |
+| Cline | ✅ | `--to=cline` | `.clinerules/bujang-*.md` 자동 생성 |
+| Aider | ✅ | `--to=aider` | `CONVENTIONS.md` + `.aider.conf.yml` |
+| OpenAI Codex CLI / Copilot Coding Agent / Sourcegraph Cody | ✅ | `--to=codex` | `AGENTS.md` 표준 |
+| Google Antigravity / Gemini CLI / Code Assist | ✅ | `--to=gemini` | `GEMINI.md` + `.gemini/styleguide.md` (PR 리뷰) |
+| 모두 한 번에 | ✅ | `--to=all` | 위 5개 어댑터 동시 |
+
+> 0.6.0+ 부터 `init --tools=cursor,codex,gemini` 한 줄로 init + 모든 어댑터 동시 설치.
 
 ### Node.js / OS
 
@@ -436,12 +471,12 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] CLI (`npx harness-bujang init/status`)
 - [x] Next.js + Supabase 톡방 UI 템플릿
 - [x] 8개 프레임워크 + 5개 ORM 자동 감지
-- [x] npm 정식 publish — [`harness-bujang@0.4.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-05). **0.5.1 publish 대기** (7개 패치 일괄)
+- [x] npm 정식 publish — [`harness-bujang@0.7.0`](https://www.npmjs.com/package/harness-bujang) 라이브 (2026-05-10)
 - [x] 인터랙티브 `init` — `@inquirer/prompts` 기반 언어/백엔드/UI 선택 + 기존 설치 감지 시 overwrite 프롬프트 (0.2.0/0.2.1)
 - [x] 슬래시 커맨드 directive 화 — `/bujang-init`, `/bujang-status`, `/bujang-team`, `/bujang-report` 모두 실제 액션 형태로 재작성 (0.2.0)
 - [x] **비-Next.js standalone viewer (`bujang chat`)** — Node http + 임베디드 HTML + system sqlite3 (0.3.0)
 - [x] **sandbox e2e 검증 스크립트** — `npm run sandbox-test` (0.3.0/0.4.0)
-- [x] **Cursor / Cline / Aider / Codex / Gemini 어댑터** — `bujang adapt --to=<...>` 5개 어댑터 → 8+ 도구 호환 (0.4.0)
+- [x] **Cursor / Cline / Aider / Codex / Gemini 어댑터** — `bujang adapt --to=<...>` 5개 어댑터 → 9+ 도구 호환 (0.4.0)
 - [x] **README Mermaid 아키텍처 다이어그램** (0.4.0)
 - [x] 톡방 입력창 제거 (Director 자동 픽업 없으면 dead UI) (0.4.1)
 - [x] 한국어 디폴트 + 프롬프트 첫 선택지 한국어로 (0.4.2)
@@ -453,6 +488,14 @@ cp .claude/agents/security-team.md .claude/agents/devops-team.md
 - [x] **사전 동의 프로토콜** — 디스패치 전 대표님 승인 + 외부 도구 임계값 (1회 / 2~3회 / 5+ 회) (0.5.1)
 - [x] **PRD / 사업 계획 매핑** 테이블 4행 추가 (0.5.1)
 - [x] **`bujang update` 명령** — 기존 에이전트 파일 절대 안 건드림. 신규 파일만 추가 — 사용자 커스텀 100% 보존 (0.5.2)
+- [x] 톡방 사이드바 스크롤 튕김 / 부장→대표님 라우팅 / chat 첫 실행 자동 DB 생성 (0.5.3 ~ 0.5.6)
+- [x] **`bujang chat` better-sqlite3 마이그레이션** — system sqlite3 CLI shell-out → 임베디드 네이티브 prebuild (0.5.7)
+- [x] 윈도우 전용 픽스 — `openBrowser()` ENOENT (0.5.8) · `init` silent death (0.5.9, 모든 커맨드 dynamic import) — 윈도우 zero-install 정상화
+- [x] **🔒 1:1 매핑 룰** — Agent 툴 호출 1번 = `harness_messages` INSERT 1행. 병렬 N팀 호출 시 INSERT N건. 사전 동의 → INSERT → Agent 호출 → 결과 INSERT 순서 고정. director / cofounder 페르소나 + CLAUDE.md 템플릿 (한·영 6개 파일) inline 박음 (0.5.10)
+- [x] **🔁 멀티 도구 init + 에이전트별 모델 매핑** — `init` 인터랙티브 / `--tools=cursor,codex,gemini,all` flag 로 어댑터 자동 fan-out (Claude Code 는 항상 SoT). `--models=balanced|keep|cost|quality` 모델 프리셋 — balanced 매핑 (opus 6 + sonnet 7 + haiku 5) ~60% 비용 절감 (0.6.0)
+- [x] **📬 톡방 read-state SQLite 화** — `harness_read_state` 테이블 + `GET / POST /api/read-state`. chat.db SoT 라 포트 변경 / 서버 재시작 / 다른 브라우저 무관 read 상태 영구 보존. 다중 PC 자동 동기화 (0.6.1)
+- [x] **🇰🇷 `--help` 한국어 디폴트** — `--help` / `-h` 한국어 출력. 영어는 `--help-en` (0.6.2)
+- [x] **🌏 에이전트 .md 하이브리드 변환** — `shared/agents/ko/*.md` 18개 + CLAUDE.md template instructions / 룰 / 매핑 표 영어로. 페르소나 호칭 (부장 / 대표님 / 공동대표) + 톡방 발화 ("완료했습니다") 한국어 유지. 토큰 ~30~40% 절감 + LLM 인지력 향상 (0.7.0)
 - [ ] `harness-bujang@1.0.0` 안정 버전 (실사용 피드백 후)
 - [ ] Claude Code 마켓플레이스 등록
 - [ ] 데모 GIF / Cast 영상
