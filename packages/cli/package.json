@@ -1,6 +1,6 @@
 {
   "name": "harness-bujang",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Install the Harness-Bujang multi-agent harness into any project — Director, 16 specialist teams, standalone localhost chat-room viewer. Korean and English personas. Works with Claude Code, Cursor, Cline, Aider, Codex, Gemini, or any tool that reads .claude/agents/. Zero project intrusion (no next.config patching, no native peer-dep auto-install).",
   "keywords": [
     "claude-code",

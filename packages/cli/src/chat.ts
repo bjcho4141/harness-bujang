@@ -463,6 +463,9 @@ const state = {
   readByRoom: {},
   filter: localStorage.getItem(FILTER_KEY) || 'all',  // 'all' | 'unread'
   loading: true,
+  /** 0.9.2: track last-rendered room here instead of conv.dataset because the
+   * 2s poll replaces root.innerHTML, wiping any dataset on the conv element. */
+  lastRenderedRoom: null,
 };
 
 function getRole(name) {
@@ -727,11 +730,17 @@ function render() {
   //  - First render of a room → scroll to bottom (latest msg visible)
   //  - User was at bottom → keep at new bottom (so new msgs auto-show)
   //  - User scrolled up to read history → preserve their position
+  //
+  // 0.9.2: gate the "first render" branch on state.lastRenderedRoom, NOT on
+  // conv.dataset.scrolled. The 2s poll does root.innerHTML = html which
+  // recreates the #conversation element, so any dataset on it is wiped every
+  // tick — the dataset guard was always true, causing every poll to snap to
+  // bottom even when the user scrolled up to read history.
   const conv = document.getElementById('conversation');
   if (conv) {
-    if (conv.dataset.scrolled !== state.selectedRoom) {
+    if (state.lastRenderedRoom !== state.selectedRoom) {
       conv.scrollTop = conv.scrollHeight;
-      conv.dataset.scrolled = state.selectedRoom;
+      state.lastRenderedRoom = state.selectedRoom;
     } else if (convWasAtBottom) {
       conv.scrollTop = conv.scrollHeight;
     } else if (savedConvScroll !== null) {
