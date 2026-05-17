@@ -113,7 +113,6 @@ export async function runUpdate(args: string[]): Promise<void> {
 interface AssetPaths {
   agents: string;
   templates: string;
-  projectTemplate: string;
   mode: 'packaged' | 'monorepo';
 }
 
@@ -123,7 +122,6 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
     return {
       agents: path.join(packaged, 'agents'),
       templates: path.join(packaged, 'templates'),
-      projectTemplate: path.join(packaged, 'project-template'),
       mode: 'packaged',
     };
   }
@@ -133,7 +131,6 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
     return {
       agents: path.join(sharedDir, 'agents'),
       templates: path.join(sharedDir, 'templates'),
-      projectTemplate: path.join(monorepoRoot, 'packages/template'),
       mode: 'monorepo',
     };
   }
@@ -160,7 +157,6 @@ async function buildContext(
     STACK_PAYMENT:        scan.payment,
     STACK_EXTRA:          '(none)',
     HARNESS_TABLE:        'harness_messages',
-    ADMIN_HARNESS_ROUTE:  '/admin/harness',
     LEARNING_LOG_PATH:    'docs/AGENT_LEARNING_LOG.md',
     TASKS_TRACKER_GLOB:   'docs/TASKS_*.md',
     BENCHMARK_DOC_PATH:   'docs/BENCHMARK.md',

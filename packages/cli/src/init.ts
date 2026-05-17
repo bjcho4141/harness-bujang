@@ -5,6 +5,12 @@ import { select, confirm, checkbox } from '@inquirer/prompts';
 import { scanProject } from './scan.js';
 import { renderTemplate } from './template.js';
 
+// 0.9.0: admin route + Next.js auto-config stripped. The chat room is now
+// served only by `bujang chat` (standalone localhost viewer) — we no longer
+// copy `app/admin/harness/`, `app/api/harness/`, `lib/harness-db/` into the
+// user's project, and no longer touch `next.config.*` / install native peer
+// deps / scaffold `.env.local`. Zero project intrusion.
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -20,7 +26,6 @@ const c = {
 interface AssetPaths {
   agents: string;
   templates: string;
-  projectTemplate: string;
   mode: 'packaged' | 'monorepo';
 }
 
@@ -29,7 +34,7 @@ interface AssetPaths {
  *
  *   1. **Packaged** (after `npm install harness-bujang`):
  *      `<package>/dist/index.js` runs alongside `<package>/templates/` which
- *      was copied from `shared/` + `packages/template/` at build time.
+ *      was copied from `shared/` at build time.
  *
  *   2. **Monorepo dev** (running `tsx src/index.ts` from this repo):
  *      `<repo>/packages/cli/src/init.ts` reaches up to `<repo>/shared/`.
@@ -40,7 +45,6 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
     return {
       agents: path.join(packaged, 'agents'),
       templates: path.join(packaged, 'templates'),
-      projectTemplate: path.join(packaged, 'project-template'),
       mode: 'packaged',
     };
   }
@@ -51,7 +55,6 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
     return {
       agents: path.join(sharedDir, 'agents'),
       templates: path.join(sharedDir, 'templates'),
-      projectTemplate: path.join(monorepoRoot, 'packages/template'),
       mode: 'monorepo',
     };
   }
@@ -65,7 +68,6 @@ async function resolveAssetPaths(): Promise<AssetPaths> {
   );
 }
 
-type ChatBackend = 'sqlite' | 'supabase';
 type AdapterTarget = 'cursor' | 'cline' | 'aider' | 'codex' | 'gemini';
 type ModelTier = 'opus' | 'sonnet' | 'haiku';
 type ModelPreset = 'balanced' | 'cost' | 'quality' | 'keep' | 'custom';
@@ -181,23 +183,8 @@ interface InitOptions {
   target: string;
   framework?: string;
   db?: string;
-  /** Which backend the chat room (`harness_messages`) writes to. */
-  chatBackend: ChatBackend;
-  /**
-   * If true (and chatBackend=sqlite), do NOT add `.harness/` to .gitignore —
-   * letting the user commit chat history for cross-machine solo sync.
-   * Default false (the safer choice; binary SQLite files don't merge).
-   */
-  commitChat: boolean;
-  installTemplate: boolean;
   editClaudeMd: boolean;
   seedLearningLog: boolean;
-  /**
-   * 0.8.2: When true (default), `init` runs `<pm> add` for the peer deps the
-   * SQLite/Supabase chat-room UI needs (better-sqlite3 / @supabase/supabase-js).
-   * Set false via `--no-install-deps` for CI / sandboxed environments.
-   */
-  installDeps: boolean;
   yes: boolean;
   /**
    * Extra tool adapters to install after `.claude/agents/` (the SoT) lands.
@@ -250,7 +237,7 @@ export async function runInit(args: string[]): Promise<void> {
   const interactive = !opts.yes && Boolean(process.stdin.isTTY);
   if (interactive) {
     try {
-      opts = await promptInteractive(opts, scan);
+      opts = await promptInteractive(opts);
 
       // If a previous install is detected, ask whether to overwrite. Without this,
       // a user picking (say) Korean on a project that already has English agents
@@ -273,15 +260,11 @@ export async function runInit(args: string[]): Promise<void> {
 
   console.log(c.bold('📋 Configuration'));
   console.log(c.dim(`   Language:      ${opts.lang}`));
-  console.log(c.dim(`   Chat backend:  ${opts.chatBackend}${opts.chatBackend === 'sqlite' ? ' (local file)' : ' (cloud Postgres)'}`));
   console.log(c.dim(`   Tools:         claude${opts.adapters.length > 0 ? ` + ${opts.adapters.join(', ')}` : ' (only)'}`));
   console.log(c.dim(`   Claude models: ${describeModelMap(opts.modelMap)}`));
   if (opts.codexModelMap)  console.log(c.dim(`   Codex models:  ${describeAnyMap(opts.codexModelMap)}`));
   if (opts.geminiModelMap) console.log(c.dim(`   Gemini models: ${describeAnyMap(opts.geminiModelMap)}`));
   if (opts.aiderModel  && opts.aiderModel  !== '(skip)') console.log(c.dim(`   Aider model:   ${opts.aiderModel} (.aider.conf.yml)`));
-  if (scan.framework.startsWith('Next.js')) {
-    console.log(c.dim(`   Chat-room UI:  ${opts.installTemplate ? 'install' : 'skip'}`));
-  }
   console.log(c.dim(`   On conflict:   ${opts.yes ? 'overwrite' : 'skip existing files'}`));
   console.log();
 
@@ -315,7 +298,6 @@ export async function runInit(args: string[]): Promise<void> {
     STACK_PAYMENT:        scan.payment,
     STACK_EXTRA:          '(none)',
     HARNESS_TABLE:        'harness_messages',
-    ADMIN_HARNESS_ROUTE:  '/admin/harness',
     LEARNING_LOG_PATH:    'docs/AGENT_LEARNING_LOG.md',
     TASKS_TRACKER_GLOB:   'docs/TASKS_*.md',
     BENCHMARK_DOC_PATH:   'docs/BENCHMARK.md',
@@ -413,91 +395,8 @@ export async function runInit(args: string[]): Promise<void> {
     console.log();
   }
 
-  // 6. (Optional) chat-room UI + DB adapters
-  if (opts.installTemplate) {
-    if (scan.framework.startsWith('Next.js')) {
-      console.log(c.bold('💬 Installing chat-room UI'));
-      await copyDir(
-        path.join(assets.projectTemplate, 'app/admin/harness'),
-        path.join(opts.target, 'src/app/admin/harness'),
-        opts.yes,
-        '   ',
-      );
-      await copyDir(
-        path.join(assets.projectTemplate, 'app/api/harness'),
-        path.join(opts.target, 'src/app/api/harness'),
-        opts.yes,
-        '   ',
-      );
-      console.log();
-
-      console.log(c.bold('🗄️  Installing DB adapter library'));
-      await copyDir(
-        path.join(assets.projectTemplate, 'lib/harness-db'),
-        path.join(opts.target, 'src/lib/harness-db'),
-        opts.yes,
-        '   ',
-      );
-      console.log();
-
-      if (opts.chatBackend === 'supabase') {
-        console.log(c.bold('🗄️  Copying Supabase migrations'));
-        await copyDir(
-          path.join(assets.projectTemplate, 'migrations'),
-          path.join(opts.target, 'supabase/migrations'),
-          opts.yes,
-          '   ',
-          /^00010_|^00025_/,
-        );
-        console.log();
-      }
-
-      // SQLite mode: by default, gitignore the local db.
-      // `--commit-chat` opts out (solo cross-machine sync via git).
-      if (opts.chatBackend === 'sqlite' && !opts.commitChat) {
-        await ensureGitignore(opts.target, ['.harness/']);
-      }
-
-      // 6.4 (0.8.2) — Auto-install peer deps the chat-room UI needs:
-      //   SQLite   → better-sqlite3 + @types/better-sqlite3
-      //   Supabase → @supabase/supabase-js
-      // Without this, `next dev` blows up with module-not-found before the
-      // user even sees the chat room. Skip via --no-install-deps for CI.
-      if (opts.installDeps) {
-        await ensurePeerDeps(opts.target, opts.chatBackend);
-      } else {
-        console.log(c.dim('📦 --no-install-deps — peer dep auto-install skipped'));
-        console.log();
-      }
-
-      // 6.5 (0.8.2) — Backend-specific config follow-ups.
-      //   SQLite   → patch next.config with serverExternalPackages: ['better-sqlite3']
-      //              so Webpack/Turbopack doesn't try to bundle the native binding.
-      //   Supabase → scaffold .env.local.example with the keys the user must fill in.
-      if (opts.chatBackend === 'sqlite') {
-        await patchNextConfig(opts.target);
-      } else {
-        await scaffoldEnvExample(opts.target);
-      }
-
-      printBackendInstructions(opts.chatBackend, opts.commitChat, opts.installDeps);
-    } else {
-      console.log(
-        `${c.yellow('ℹ︎ Chat-room UI (Next.js admin route) skipped')} ` +
-          c.dim(`— your stack is detected as ${scan.framework}.`),
-      );
-      console.log(
-        `   ${c.dim('To use the chat room on this stack, run')} ${c.bold('bujang chat')} ${c.dim('— it serves the')}`,
-      );
-      console.log(
-        `   ${c.dim('same KakaoTalk-style viewer at http://localhost:7777, no Next.js needed.')}`,
-      );
-      console.log();
-    }
-  }
-
-  // 6.5 Run adapters for any extra tools the user picked. .claude/agents/ is
-  //     the SoT, so we always have the source ready by this point.
+  // 6. Run adapters for any extra tools the user picked. .claude/agents/ is
+  //    the SoT, so we always have the source ready by this point.
   if (opts.adapters.length > 0) {
     console.log(c.bold('🔁 Fanning out to extra tool adapters'));
     console.log(c.dim(`   Targets: ${opts.adapters.join(', ')}`));
@@ -518,7 +417,7 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(c.bold(c.green('✅ Done.')));
   console.log();
   printRestartReminder(opts.lang);
-  printNextSteps(opts.lang, scan.framework.startsWith('Next.js') && opts.installTemplate, context.ADMIN_HARNESS_ROUTE!);
+  printNextSteps(opts.lang);
 }
 
 // ---------------------------------------------------------------------------
@@ -535,72 +434,33 @@ export function printRestartReminder(lang: 'ko' | 'en'): void {
   const bot = `   ${c.dim('╰' + '─'.repeat(64) + '╯')}`;
   console.log(top);
   console.log(line(ko
-    ? c.bold(c.yellow('⚠️  STEP 1 — Claude Code 껐다 다시 켜주세요'))
-    : c.bold(c.yellow('⚠️  STEP 1 — Restart Claude Code'))));
-  console.log(line(''));
-  console.log(line(ko
-    ? '에이전트 등록은 세션 시작 시점에만 일어나서, 지금 떠 있는'
-    : 'Agents register at session start only, so the running session'));
-  console.log(line(ko
-    ? '세션에서는 새로 깐 부장 + 팀이 안 보입니다.'
-    : "won't see the newly-installed director + teams yet."));
-  console.log(line(''));
-  console.log(line(`  ${c.bold(ko ? '권장: ' : 'Recommended: ')}${c.cyan(ko ? 'Claude Code 완전 종료 → 같은 폴더에서 다시 시작' : 'Fully quit Claude Code → relaunch in this folder')}`));
-  console.log(line(`  ${c.dim(ko ? '대안:  ' : 'Or:          ')}${c.cyan('/agents')}${c.dim(ko ? ' (에이전트 메뉴에서 재로드, 가끔 안 됨)' : ' (refresh menu — sometimes flaky)')}`));
-  console.log(line(''));
+    ? c.bold(c.yellow('⚠️  STEP 1 — 실행 중인 Claude Code 종료 후 재시작'))
+    : c.bold(c.yellow('⚠️  STEP 1 — Quit Claude Code and relaunch'))));
   console.log(line(c.dim(ko
-    ? '⚠ /clear 는 컨텍스트만 비움 — 에이전트 재등록 안 됨'
-    : '⚠ /clear only wipes context — it does NOT re-register agents')));
+    ? '(지금 세션은 새 에이전트를 못 봅니다)'
+    : '(the running session cannot see the new agents)')));
   console.log(bot);
   console.log();
 }
 
 /**
- * 0.8.3: Concrete next-step UX after restart. Leads with `/open-chat` since
- * that's the most discoverable way to verify install + see live director
- * activity. Also lists the "ask the Director" pattern for the user to start
- * actual work.
+ * 0.9.0: Step 2 단순화. `/open-chat` 슬래시 커맨드는 plugin 재설치 안 한
+ * 사용자에게는 안 보이므로, 가장 안정적인 두 경로 (자연어 → 부장, 또는
+ * 터미널 직접 실행) 를 먼저 안내.
  */
-function printNextSteps(lang: 'ko' | 'en', nextjsEmbedded: boolean, adminRoute: string): void {
+function printNextSteps(lang: 'ko' | 'en'): void {
   const ko = lang === 'ko';
   const line = (s: string) => `   ${c.dim('│')} ${s}`;
   const top = `   ${c.dim('╭' + '─'.repeat(64) + '╮')}`;
   const bot = `   ${c.dim('╰' + '─'.repeat(64) + '╯')}`;
   console.log(top);
   console.log(line(c.bold(c.green(ko
-    ? '✨ STEP 2 — 재시작 후 톡방 열기'
-    : '✨ STEP 2 — After restart, open the chat room'))));
+    ? '✨ STEP 2 — 톡방 열기'
+    : '✨ STEP 2 — Open the chat room'))));
   console.log(line(''));
-  console.log(line(`  ${c.bold(ko ? 'Claude Code 안에서:  ' : 'Inside Claude Code:  ')}${c.cyan('/open-chat')}`));
-  console.log(line(`  ${c.dim(ko
-    ? '→ 백그라운드로 톡방 서버 띄우고 브라우저 자동 오픈'
-    : '→ launches the chat-room server in background + opens the browser')}`));
-  console.log(line(''));
-  console.log(line(c.dim(ko
-    ? '플러그인 안 설치하셨으면 (별도 터미널):'
-    : 'No plugin installed? (separate terminal):')));
-  console.log(line(`  ${c.dim('$')} ${c.cyan('npx harness-bujang chat')} ${c.dim('→ http://localhost:7777')}`));
-  if (nextjsEmbedded) {
-    console.log(line(''));
-    console.log(line(c.dim(ko
-      ? `또는 dev 서버 띄우고 ${c.bold(adminRoute)} 방문 (같은 톡방, 다른 surface)`
-      : `Or run your dev server and visit ${c.bold(adminRoute)} (same chat, different surface)`)));
-  }
-  console.log(bot);
-  console.log();
-  console.log(top);
-  console.log(line(c.bold(c.cyan(ko
-    ? '🎯 STEP 3 — 부장한테 첫 지시'
-    : '🎯 STEP 3 — Give the Director a first task'))));
-  console.log(line(''));
-  console.log(line(c.dim(ko ? '예:' : 'e.g.:')));
-  console.log(line(`  ${c.bold(ko
-    ? '"부장님, hello-world 엔드포인트 하나 만들어줘"'
-    : '"Director, please add a hello-world endpoint"')}`));
-  console.log(line(''));
-  console.log(line(c.dim(ko
-    ? '부장이 팀 호출 → 작업 → 톡방에 모든 INSERT 가 실시간으로 보임'
-    : 'Director dispatches teams → work → every INSERT streams to the chat room')));
+  console.log(line(`  ${c.bold(ko ? 'Claude Code 안에서:  ' : 'Inside Claude Code: ')}${c.cyan(ko ? '"부장님, 톡방 열어주세요"' : '"Director, open the chat room"')}`));
+  console.log(line(`  ${c.bold(ko ? '또는 별도 터미널에서:' : 'Or in a terminal:    ')} ${c.cyan('npx harness-bujang chat')}`));
+  console.log(line(c.dim('  → http://localhost:7777')));
   console.log(bot);
   console.log();
 }
@@ -609,10 +469,7 @@ function printNextSteps(lang: 'ko' | 'en', nextjsEmbedded: boolean, adminRoute: 
 // helpers
 // ---------------------------------------------------------------------------
 
-async function promptInteractive(
-  opts: InitOptions,
-  scan: import('./scan.js').ScanResult,
-): Promise<InitOptions> {
+async function promptInteractive(opts: InitOptions): Promise<InitOptions> {
   const lang = (await select({
     message: '에이전트 언어 / Agent language',
     choices: [
@@ -621,15 +478,6 @@ async function promptInteractive(
     ],
     default: opts.lang,
   })) as 'en' | 'ko';
-
-  const chatBackend = (await select({
-    message: '톡방 백엔드',
-    choices: [
-      { name: 'SQLite — 로컬 파일, 셋업 불필요 (추천)',  value: 'sqlite'   },
-      { name: 'Supabase — 클라우드 Postgres (팀 공유용)', value: 'supabase' },
-    ],
-    default: opts.chatBackend,
-  })) as ChatBackend;
 
   // Tool adapters — Claude Code is the SoT (always installed) but it's now
   // toggleable in the prompt so users can see it. Even if unchecked, the
@@ -731,17 +579,9 @@ async function promptInteractive(
     })) as AiderModel;
   }
 
-  let installTemplate = opts.installTemplate;
-  if (scan.framework.startsWith('Next.js') && opts.installTemplate) {
-    installTemplate = await confirm({
-      message: '톡방 UI 설치? (Next.js admin 라우트 /admin/harness)',
-      default: true,
-    });
-  }
-
   return {
     ...opts,
-    lang, chatBackend, installTemplate, adapters, modelMap,
+    lang, adapters, modelMap,
     codexModelMap, geminiModelMap, aiderModel,
   };
 }
@@ -814,10 +654,6 @@ function parseArgs(args: string[]): InitOptions {
   if (!['ko', 'en'].includes(lang)) {
     throw new Error(`--lang must be "ko" or "en", got "${lang}"`);
   }
-  const chatBackend = (getFlag(args, '--chat') ?? 'sqlite') as ChatBackend;
-  if (!['sqlite', 'supabase'].includes(chatBackend)) {
-    throw new Error(`--chat must be "sqlite" or "supabase", got "${chatBackend}"`);
-  }
   const targetRaw = getFlag(args, '--target') ?? '.';
 
   // --tools=cursor,codex   or   --tools=all   (Claude Code is always implied)
@@ -877,12 +713,8 @@ function parseArgs(args: string[]): InitOptions {
     target:           path.resolve(targetRaw),
     framework:        getFlag(args, '--framework'),
     db:               getFlag(args, '--db'),
-    chatBackend,
-    commitChat:       args.includes('--commit-chat'),
-    installTemplate:  !args.includes('--no-template'),
     editClaudeMd:     !args.includes('--no-claude-md'),
     seedLearningLog:  !args.includes('--no-learning-log'),
-    installDeps:      !args.includes('--no-install-deps'),
     yes:              args.includes('--yes') || args.includes('-y'),
     adapters,
     modelMap,
@@ -932,265 +764,6 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
-async function copyDir(
-  src: string,
-  dst: string,
-  overwrite: boolean,
-  indent: string,
-  filter?: RegExp,
-): Promise<void> {
-  await fs.mkdir(dst, { recursive: true });
-  const entries = await fs.readdir(src, { withFileTypes: true });
-  for (const e of entries) {
-    if (filter && !e.isDirectory() && !filter.test(e.name)) continue;
-    const s = path.join(src, e.name);
-    const d = path.join(dst, e.name);
-    if (e.isDirectory()) {
-      await copyDir(s, d, overwrite, indent, filter);
-    } else {
-      if ((await exists(d)) && !overwrite) {
-        console.log(`${indent}${c.yellow('⚠')}  ${path.relative(process.cwd(), d)} ${c.dim('(exists, skipped)')}`);
-        continue;
-      }
-      await fs.copyFile(s, d);
-      console.log(`${indent}${c.green('✓')}  ${path.relative(process.cwd(), d)}`);
-    }
-  }
-}
-
-async function ensureGitignore(target: string, lines: string[]): Promise<void> {
-  const gitignorePath = path.join(target, '.gitignore');
-  let existing = '';
-  if (await exists(gitignorePath)) {
-    existing = await fs.readFile(gitignorePath, 'utf8');
-  }
-  const toAdd = lines.filter((l) => !existing.split('\n').some((e) => e.trim() === l.trim()));
-  if (toAdd.length === 0) return;
-
-  const sep = existing && !existing.endsWith('\n') ? '\n' : '';
-  const block = `${sep}\n# Harness-Bujang local chat database\n${toAdd.join('\n')}\n`;
-  await fs.writeFile(gitignorePath, existing + block);
-}
-
-/**
- * 0.8.2: install the chat-room UI's peer deps in the user's project so
- * `next dev` doesn't blow up with module-not-found before they see anything.
- *   SQLite mode    → better-sqlite3 + @types/better-sqlite3
- *   Supabase mode  → @supabase/supabase-js
- * Already-installed deps are detected via package.json and skipped.
- * On install failure (offline / native compile fail), prints the manual
- * fallback command so the user isn't stuck.
- */
-async function ensurePeerDeps(target: string, backend: ChatBackend): Promise<void> {
-  const { detectPM, readDeps, installDeps, buildAddCmd } = await import('./pm.js');
-  const pm = await detectPM(target);
-  const existing = await readDeps(target);
-
-  const wanted: { name: string; dev?: boolean }[] = [];
-  if (backend === 'sqlite') {
-    if (!existing['better-sqlite3'])        wanted.push({ name: 'better-sqlite3' });
-    if (!existing['@types/better-sqlite3']) wanted.push({ name: '@types/better-sqlite3', dev: true });
-  } else {
-    if (!existing['@supabase/supabase-js']) wanted.push({ name: '@supabase/supabase-js' });
-  }
-
-  if (wanted.length === 0) {
-    console.log(c.dim(`📦 Peer deps already installed (${backend}) — skipped`));
-    console.log();
-    return;
-  }
-
-  const summary = wanted.map((d) => d.name + (d.dev ? c.dim(' (dev)') : '')).join(', ');
-  console.log(c.bold(`📦 Auto-installing peer deps via ${pm}`));
-  console.log(c.dim(`   ${summary}`));
-  console.log();
-
-  const result = await installDeps(target, pm, wanted);
-  if (result.ok) {
-    console.log(c.green(`   ✓ installed`));
-  } else {
-    console.log(c.yellow(`   ⚠ install failed: ${result.err ?? 'unknown'}`));
-    console.log(c.dim(`     수동으로 실행해주세요 / Run manually:`));
-    const prod = wanted.filter((d) => !d.dev).map((d) => d.name);
-    const dev  = wanted.filter((d) => d.dev).map((d) => d.name);
-    if (prod.length > 0) console.log(c.dim(`       $ ${buildAddCmd(pm, prod, false)}`));
-    if (dev.length  > 0) console.log(c.dim(`       $ ${buildAddCmd(pm, dev,  true)}`));
-  }
-  console.log();
-}
-
-/**
- * 0.8.2: idempotently add `'better-sqlite3'` to next.config's
- * `serverExternalPackages` array. Required because Webpack/Turbopack can't
- * bundle a native binding — they must defer to Node's runtime require.
- *
- * Strategy (conservative, no AST):
- *   1. Already includes 'better-sqlite3' in serverExternalPackages → no-op.
- *   2. Has serverExternalPackages array → splice 'better-sqlite3' in.
- *   3. Has a config object literal → inject as a top-level property.
- *   4. Anything weirder → print the manual snippet (don't risk corrupting).
- */
-async function patchNextConfig(target: string): Promise<void> {
-  const candidates = ['next.config.ts', 'next.config.mjs', 'next.config.js'];
-  let configPath: string | null = null;
-  for (const cand of candidates) {
-    if (await exists(path.join(target, cand))) {
-      configPath = path.join(target, cand);
-      break;
-    }
-  }
-  if (!configPath) {
-    console.log(c.dim(`📝 next.config.{js,mjs,ts} not found — serverExternalPackages patch skipped`));
-    console.log();
-    return;
-  }
-
-  const filename = path.basename(configPath);
-  const raw = await fs.readFile(configPath, 'utf8');
-
-  // Case 1 — already covered.
-  if (/serverExternalPackages\s*:\s*\[[^\]]*['"]better-sqlite3['"]/.test(raw)) {
-    console.log(c.dim(`📝 ${filename} 이미 'better-sqlite3' 등록됨 — skipped`));
-    console.log();
-    return;
-  }
-
-  // Case 2 — has serverExternalPackages array but missing better-sqlite3.
-  if (/serverExternalPackages\s*:\s*\[/.test(raw)) {
-    const patched = raw.replace(
-      /serverExternalPackages\s*:\s*\[/,
-      `serverExternalPackages: ['better-sqlite3', `,
-    );
-    await fs.writeFile(configPath, patched);
-    console.log(c.green(`   ✓ ${filename} ← 'better-sqlite3' added to serverExternalPackages`));
-    console.log();
-    return;
-  }
-
-  // Case 3 — try to inject into a config object literal. We match the
-  // opening `{` of `const X = {`, `const X: T = {`, `module.exports = {`,
-  // or `export default {`. The optional `(?:\s*:\s*[^=]+)?` swallows TS
-  // type annotations like `: NextConfig` between the identifier and `=`.
-  const injectPattern = /((?:const\s+\w+(?:\s*:\s*[^=]+)?\s*=\s*|module\.exports\s*=\s*|export\s+default\s*)\{)/;
-  if (injectPattern.test(raw)) {
-    const patched = raw.replace(
-      injectPattern,
-      `$1\n  serverExternalPackages: ['better-sqlite3'],`,
-    );
-    await fs.writeFile(configPath, patched);
-    console.log(c.green(`   ✓ ${filename} ← injected serverExternalPackages: ['better-sqlite3']`));
-    console.log();
-    return;
-  }
-
-  // Case 4 — fall back to printing the snippet.
-  console.log(c.yellow(`📝 ${filename} 자동 패치 못 했습니다 — 다음을 추가해주세요:`));
-  console.log(c.dim(`     {`));
-  console.log(c.dim(`       serverExternalPackages: ['better-sqlite3'],`));
-  console.log(c.dim(`       // ...rest of config`));
-  console.log(c.dim(`     }`));
-  console.log();
-}
-
-/**
- * 0.8.2: append Supabase-mode env keys to .env.local.example so the user
- * doesn't have to remember the exact names. Idempotent — keys already
- * present in the file are skipped.
- */
-async function scaffoldEnvExample(target: string): Promise<void> {
-  const fp = path.join(target, '.env.local.example');
-  let raw = '';
-  if (await exists(fp)) raw = await fs.readFile(fp, 'utf8');
-
-  const HEADER = '# --- Harness-Bujang (Supabase mode) ---';
-  const KEYS = [
-    'HARNESS_DB=supabase',
-    'NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co',
-    'SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here',
-    'HARNESS_WRITE_SECRET=generate-with-openssl-rand-hex-32',
-    'SUPER_ADMIN_EMAILS=you@example.com',
-  ];
-
-  const missing = KEYS.filter((line) => {
-    const key = line.split('=')[0]!;
-    return !new RegExp(`^${key}=`, 'm').test(raw);
-  });
-
-  if (missing.length === 0 && raw.includes(HEADER)) {
-    console.log(c.dim(`📝 .env.local.example 이미 모든 Supabase 키 있음 — skipped`));
-    console.log();
-    return;
-  }
-
-  const sep = raw && !raw.endsWith('\n') ? '\n' : '';
-  const block = `${sep}\n${HEADER}\n${missing.join('\n')}\n`;
-  await fs.writeFile(fp, raw + block);
-  console.log(c.green(`   ✓ .env.local.example ← Supabase 키 ${missing.length}개 추가 (placeholders)`));
-  console.log(c.dim(`     → 실제 값은 Supabase 프로젝트에서 복사해서 .env.local 에 넣어주세요.`));
-  console.log();
-}
-
-function printBackendInstructions(
-  backend: ChatBackend,
-  commitChat: boolean,
-  installedDeps: boolean,
-): void {
-  // Step numbering shifts depending on whether auto-install ran (0.8.2).
-  // If we already installed the SQLite driver / supabase-js for the user,
-  // we skip that "step 1" and renumber the rest.
-  let n = 1;
-  if (backend === 'sqlite') {
-    console.log(c.bold(c.cyan('📋 SQLite mode (default) — next steps:')));
-    console.log();
-    if (!installedDeps) {
-      console.log(`   ${c.bold(`${n++}.`)} Install the SQLite driver in your project:`);
-      console.log(`      ${c.dim('$')} ${c.bold('npm i better-sqlite3')}`);
-      console.log(`      ${c.dim('$')} ${c.bold('npm i -D @types/better-sqlite3')}`);
-      console.log();
-    }
-    console.log(`   ${c.bold(`${n++}.`)} (optional) Add to ${c.bold('.env.local')}:`);
-    console.log(`      ${c.dim('HARNESS_DB=sqlite                  # default — can be omitted')}`);
-    console.log(`      ${c.dim('HARNESS_SQLITE_PATH=./.harness/chat.db    # default — can be omitted')}`);
-    console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>     # for bot/script writes')}`);
-    console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com # comma-separated')}`);
-    console.log();
-    console.log(`   ${c.bold(`${n++}.`)} Run your dev server and visit ${c.bold('/admin/harness')}.`);
-    console.log();
-    if (commitChat) {
-      console.log(c.dim(`   📦 ${c.bold('--commit-chat')} mode: .harness/ NOT added to .gitignore.`));
-      console.log(c.dim(`      Commit chat.db to sync history across YOUR OWN machines.`));
-      console.log(c.dim(`      ⚠ Do NOT use this with multiple collaborators — binary files don't merge.`));
-      console.log(c.dim(`      For team sharing, use --chat=supabase or "bujang migrate --to=supabase".`));
-    } else {
-      console.log(c.dim(`   When you're ready for team / prod sharing, run:`));
-      console.log(c.dim(`      $ bujang migrate --to=supabase`));
-    }
-  } else {
-    console.log(c.bold(c.cyan('📋 Supabase mode — next steps:')));
-    console.log();
-    if (!installedDeps) {
-      console.log(`   ${c.bold(`${n++}.`)} Install the Supabase client in your project:`);
-      console.log(`      ${c.dim('$')} ${c.bold('npm i @supabase/supabase-js')}`);
-      console.log();
-    }
-    console.log(`   ${c.bold(`${n++}.`)} Apply the migrations to your Supabase project:`);
-    console.log(`      ${c.dim('$')} ${c.bold('supabase db push')}`);
-    console.log(`      ${c.dim('   (or run them manually via psql / SQL editor)')}`);
-    console.log();
-    console.log(`   ${c.bold(`${n++}.`)} Fill in the keys in ${c.bold('.env.local')} ${c.dim('(template scaffolded at .env.local.example)')}:`);
-    console.log(`      ${c.bold('HARNESS_DB=supabase')}`);
-    console.log(`      ${c.bold('NEXT_PUBLIC_SUPABASE_URL=...')}`);
-    console.log(`      ${c.bold('SUPABASE_SERVICE_ROLE_KEY=...')}`);
-    console.log(`      ${c.bold('HARNESS_WRITE_SECRET=<random>')}`);
-    console.log(`      ${c.bold('SUPER_ADMIN_EMAILS=you@example.com')}`);
-    console.log();
-    console.log(`   ${c.bold(`${n++}.`)} Implement ${c.bold('verifySuperAdmin()')} at ${c.bold('@/lib/utils/admin')}`);
-    console.log(`      (see ${c.dim('packages/template/README.md')} for an example).`);
-    console.log();
-    console.log(`   ${c.bold(`${n++}.`)} Run your dev server and visit ${c.bold('/admin/harness')}.`);
-  }
-  console.log();
-}
 
 /**
  * 0.8.0: write a "💡 Recommended model: <name>" memo above EACH agent

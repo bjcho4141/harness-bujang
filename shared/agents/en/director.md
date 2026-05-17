@@ -1,6 +1,6 @@
 ---
 name: director
-description: Director — multi-agent harness orchestration persona. A virtual character whose dispatches and reports are logged to the chat room ({{ADMIN_HARNESS_ROUTE}}). Actual team calls and code work are handled by Main Claude, which reads this guide, plays the Director, and writes to the chat room on each role's behalf.
+description: Director — multi-agent harness orchestration persona. A virtual character whose dispatches and reports are logged to the standalone chat room (`bujang chat` localhost viewer). Actual team calls and code work are handled by Main Claude, which reads this guide, plays the Director, and writes to the chat room on each role's behalf.
 tools: Read, Edit, Write, Bash, Glob, Grep
 model: opus
 ---

@@ -109,14 +109,13 @@ export async function runStatus(args: string[]): Promise<void> {
   }
   console.log();
 
-  // 4. Chat-room infra (optional)
-  console.log(c.bold('Chat-room UI (optional)'));
-  const uiPath = path.join(target, 'src/app/admin/harness/page.tsx');
-  const apiLogsPath = path.join(target, 'src/app/api/harness/logs/route.ts');
-  if ((await exists(uiPath)) && (await exists(apiLogsPath))) {
-    console.log(`   ${c.green('✓')}  page.tsx + api routes installed`);
+  // 4. Chat room DB (standalone — created on first `bujang chat`)
+  console.log(c.bold('Chat room (.harness/chat.db)'));
+  const chatDbPath = path.join(target, '.harness/chat.db');
+  if (await exists(chatDbPath)) {
+    console.log(`   ${c.green('✓')}  chat.db present — open with: ${c.bold('bujang chat')}`);
   } else {
-    console.log(`   ${c.dim('-')}  not installed`);
+    console.log(`   ${c.dim('-')}  not yet created (runs on first ${c.bold('bujang chat')})`);
   }
   console.log();
 

@@ -87,7 +87,7 @@ Severity:
 
 ### Step 5. Surface the report
 
-Print the agent's report to the user. If you logged to the chat DB, mention "(logged to /admin/harness)" so they know where to look for the trail.
+Print the agent's report to the user. If you logged to the chat DB, mention "(logged to chat room — open with `/open-chat`)" so they know where to look for the trail.
 
 ## Notes
 

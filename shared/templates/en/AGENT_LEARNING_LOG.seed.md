@@ -28,7 +28,7 @@
 **Context**: Introduced the Harness-Bujang multi-agent system to this project.
 **Root cause**: Single-agent work has weak review and zero chat visibility — when something stalls, the principal cannot see where.
 **Lesson**: Never skip `{{HARNESS_TABLE}}` INSERTs. Every step must surface in the chat room so the principal can track progress.
-**Files**: `.claude/agents/*.md`, `{{ADMIN_HARNESS_ROUTE}}`
+**Files**: `.claude/agents/*.md` · Chat room: `bujang chat`
 
 ---
 

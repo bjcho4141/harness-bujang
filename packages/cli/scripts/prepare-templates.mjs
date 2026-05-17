@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Bundle the monorepo's `shared/` and `packages/template/` assets into
- * `packages/cli/templates/` so the published npm package is self-contained.
+ * Bundle the monorepo's `shared/` assets into `packages/cli/templates/` so
+ * the published npm package is self-contained.
  *
  * Layout produced:
  *   packages/cli/templates/
- *   ├── agents/{ko,en}/                  ← from shared/agents/
- *   ├── templates/{ko,en}/               ← from shared/templates/
- *   └── project-template/                ← from packages/template/
- *       ├── migrations/
- *       └── app/
+ *   ├── agents/{ko,en}/      ← from shared/agents/
+ *   └── templates/{ko,en}/   ← from shared/templates/
  *
  * Runs automatically before `tsup` build (see package.json scripts).
  * The `templates/` directory is git-ignored — it's a build artifact regenerated
  * from the SoT in `shared/`.
+ *
+ * 0.9.0: packages/template/ (Next.js admin route) was removed. The chat room
+ * is served only by `bujang chat` (standalone localhost viewer) now.
  */
 
 import { cp, rm, mkdir, stat } from 'node:fs/promises';
@@ -35,17 +35,11 @@ async function exists(p) {
   }
 }
 
-async function copyTree(src, dst, { exclude = [] } = {}) {
+async function copyTree(src, dst) {
   if (!(await exists(src))) {
     throw new Error(`source not found: ${src}`);
   }
-  await cp(src, dst, {
-    recursive: true,
-    filter: (s) => {
-      const rel = path.relative(src, s);
-      return !exclude.some((p) => rel.startsWith(p) || rel.endsWith(p));
-    },
-  });
+  await cp(src, dst, { recursive: true });
 }
 
 async function main() {
@@ -60,13 +54,6 @@ async function main() {
   await copyTree(
     path.join(MONOREPO_ROOT, 'shared/templates'),
     path.join(DEST, 'templates'),
-  );
-
-  console.log('[prepare-templates] copying packages/template/ → templates/project-template/');
-  await copyTree(
-    path.join(MONOREPO_ROOT, 'packages/template'),
-    path.join(DEST, 'project-template'),
-    { exclude: ['.gitkeep', 'node_modules', 'README.md'] },
   );
 
   console.log('[prepare-templates] ✓ done');

@@ -45,8 +45,8 @@ After install, Claude Code picks up the agents and commands automatically. Verif
 
 | Command | Purpose |
 |---|---|
-| `/bujang-init` | One-shot installer — scans project, copies agents, fills placeholders, seeds learning log, optionally installs chat-room UI |
-| `/bujang-status` | Health check — verify agents, `CLAUDE.md`, learning log, chat-room |
+| `/bujang-init` | One-shot installer — scans project, copies agents, fills placeholders, seeds learning log, fans out to extra-tool adapters |
+| `/bujang-status` | Health check — verify agents, `CLAUDE.md`, learning log, `.harness/chat.db` |
 | `/bujang-team <name> <task>` | Quick-dispatch a specific team without the Director's full ceremony |
 | `/bujang-report` | Summarize recent chat activity (last 24 h by default) |
 | `/open-chat` | Launch the standalone KakaoTalk-style chat-room viewer (`http://localhost:7777`) in the background and auto-open the browser |
@@ -61,14 +61,16 @@ cd your-project
 
 `/bujang-init` will ask:
 - Korean (한국어, full Bujang persona) or English
-- Whether to install the chat-room UI (Next.js + Postgres-compatible DB only)
-- Project paths for the learning log, task tracker, harness route, etc.
+- Which extra-tool adapters to install (Cursor / Cline / Aider / Codex / Gemini)
+- Per-tool model preset (balanced / keep / cost / quality / custom)
 
 It will then:
 1. Copy agents to `.claude/agents/` with placeholders replaced based on detected stack
 2. Append the harness section to your `CLAUDE.md`
 3. Seed the learning log
-4. (Optional) Copy the chat-room SQL migrations and Next.js admin page
+4. (Optional) Fan out to selected tool adapters (Cursor / Cline / Aider / Codex / Gemini)
+
+The chat room is served standalone via `/open-chat` (or `npx harness-bujang chat`) — zero project intrusion.
 
 ## Korean version
 

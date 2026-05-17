@@ -13,22 +13,18 @@ Parse `--days=N` (default 1) and `--detailed` from the user's command arguments.
 
 ### Step 1. Pull the data
 
-Detect the backend by checking the project for a chat DB configuration:
+Read from the local SQLite chat DB at `.harness/chat.db`:
 
-- **SQLite** — if `.harness/chat.db` exists at the project root:
+```bash
+sqlite3 .harness/chat.db <<SQL
+SELECT id, created_at, from_role, to_role, type, severity, body
+FROM harness_messages
+WHERE created_at >= datetime('now', '-${N} day')
+ORDER BY id ASC;
+SQL
+```
 
-  ```bash
-  sqlite3 .harness/chat.db <<SQL
-  SELECT id, created_at, from_role, to_role, type, severity, body
-  FROM harness_messages
-  WHERE created_at >= datetime('now', '-${N} day')
-  ORDER BY id ASC;
-  SQL
-  ```
-
-- **Supabase** — if `lib/harness-db/supabase.ts` is wired and the project has Supabase env vars: hit `/api/harness/logs?days=${N}` (the route returns the same shape) or query `harness_messages` directly via the service-role client.
-
-If no chat DB is configured (agents-only install), output: "No chat room is configured for this project — `/bujang-report` requires the chat-room UI install. Re-run `/bujang-init` and pick `Install chat-room UI = yes`."
+If `.harness/chat.db` doesn't exist, output: "No chat room exists yet for this project — open it once with `/open-chat` (or `npx harness-bujang chat --create`), then re-run `/bujang-report`."
 
 ### Step 2. Aggregate
 

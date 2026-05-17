@@ -36,9 +36,3 @@ npx harness-bujang@latest chat --create
 
 If port 7777 is in use, the CLI silently uses 7778, 7779, … — no error. Just relay whichever URL the CLI prints. The user can close any old viewers if they want a single tab.
 
-## When NOT to call this
-
-If the user is on a Next.js project that installed the embedded chat UI during `bujang init` (the `/admin/harness` route), they can also see the same chat by visiting `http://localhost:3000/admin/harness` in their existing dev server. Both surfaces read the same `chat.db`, so either works. Pick `/open-chat` when:
-- The user is on a non-Next.js stack (Rails, Django, Rust, …)
-- The user does not have the dev server running
-- The user just wants the standalone window without leaving Claude Code

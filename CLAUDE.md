@@ -16,22 +16,20 @@
 ```
 harness-bujang/
 ├── shared/                              # Single Source of Truth
-│   ├── agents/{ko,en}/                  # 에이전트 10개 × 2 언어
+│   ├── agents/{ko,en}/                  # 에이전트 18개 × 2 언어
 │   └── templates/{ko,en}/               # CLAUDE.md 섹션 + 학습로그 시드
 ├── packages/
 │   ├── plugin/                          # Claude Code Plugin (/plugin install)
-│   ├── cli/                             # npx harness-bujang (npm publish 대상)
-│   │   ├── src/{index,init,status,migrate,chat,adapt,scan,template}.ts
-│   │   ├── scripts/prepare-templates.mjs   # shared → templates/ 번들
-│   │   ├── scripts/sandbox-test.sh         # e2e 검증
-│   │   └── templates/                   # 빌드 산출물 (gitignored)
-│   └── template/                        # Next.js+Supabase 톡방 자산
-│       ├── app/admin/harness/           # KakaoTalk-style UI
-│       ├── app/api/harness/             # logs + reply routes
-│       ├── lib/harness-db/              # SQLite/Supabase 어댑터
-│       └── migrations/                  # Postgres SQL
+│   └── cli/                             # npx harness-bujang (npm publish 대상)
+│       ├── src/{index,init,status,chat,adapt,update,scan,template}.ts
+│       ├── scripts/prepare-templates.mjs   # shared → templates/ 번들
+│       ├── scripts/sandbox-test.sh         # e2e 검증
+│       └── templates/                   # 빌드 산출물 (gitignored)
 └── README.md                            # 통합 사용자 가이드
 ```
+
+> 0.9.0 이후: `packages/template/` (Next.js admin 라우트 + DB 어댑터) 제거.
+> 톡방은 `bujang chat` standalone localhost viewer 하나로 통일. 사용자 프로젝트 침습 0.
 
 ## 명령어
 
@@ -70,6 +68,26 @@ node dist/index.js chat --target=/tmp/sandbox --create   # localhost:7777
 ### ✅ 끝난 것
 
 - [x] **npm publish** — `harness-bujang@0.7.1` 라이브 (2026-05-10). https://www.npmjs.com/package/harness-bujang
+  - **0.9.1 publish 대기** — **📋 설치 완료 출력 메시지 다이어트 + plugin.json 버전 동기화** — 부장님 컴플레인: "스탭 1~3 박스 너무 많다, 두 단계로 합치자. 그리고 클로드 코드에서 `/open-chat` 안 보인다." 픽스:
+    - `init.ts` `printRestartReminder` + `printNextSteps` 두 박스 (이전 3 박스) 로 다이어트. STEP 1 = 재시작 한 줄, STEP 2 = 톡방 열기 (자연어 "부장님 톡방 열어주세요" 또는 터미널 `npx harness-bujang chat`). STEP 3 "부장한테 첫 지시" 박스 통째 제거 — 사용자에게 너무 hand-holding.
+    - `/open-chat` 슬래시 커맨드 출력에서 제거 — plugin.json 이 한참 옛날 0.1.0 으로 박혀있어 부장님이 마지막 `/plugin install` 한 시점의 plugin 에 open-chat.md 가 아예 없음. plugin 재설치 안 한 사용자에겐 안 보이는 슬래시 커맨드를 메인으로 안내하면 혼란만 줌. 자연어 ("부장님 톡방 열어주세요") 가 어떤 plugin 버전에서든 동작 → 메인 안내로 승격.
+    - `packages/plugin/plugin.json` version 0.1.0 → 0.9.1. description 도 "16 specialist teams, standalone localhost chat-room viewer" 로 갱신.
+    - sandbox-test Step 1 키워드 검증 갱신 — 옛 "/open-chat" + "껐다 다시 켜" grep → 새 "종료 후 재시작" + "npx harness-bujang chat" grep.
+  - **0.9.0 라이브 (2026-05-17)** — **🧹 admin 라우트 + Next.js 자동설정 통째 제거 (대규모 정리)** — 부장님 컴플레인: "톡방 어드민 페이지 만드는 거 없에자, 그거 때문에 빌드가 깨지더라고. 그냥 로컬호스트 그것만 있어도 될거같에." 0.8.2 의 `patchNextConfig` / `ensurePeerDeps` / `scaffoldEnvExample` 가 사용자 `next.config.{js,mjs,ts}` 와 native peer deps 와 `.env.local.example` 침습해서 환경마다 빌드 깨지던 문제 + admin/harness 라우트가 standalone `bujang chat` 과 surface 중복. 픽스:
+    - `packages/template/` 통째 삭제 — `app/admin/harness/`, `app/api/harness/`, `lib/harness-db/`, `migrations/`, `README.md`. monorepo workspaces 글롭 (`packages/*`) 이라 root package.json 무수정.
+    - `init.ts` 1315 → 866 LOC (~34% 감소). 제거: `installTemplate` 옵션 / `installDeps` 옵션 / `chatBackend` 선택 / `commitChat` 옵션 / step 6 admin 라우트 분기 / `ensurePeerDeps()` / `patchNextConfig()` / `scaffoldEnvExample()` / `printBackendInstructions()` / `ensureGitignore()` / `copyDir()`. flag 제거: `--chat=` / `--commit-chat` / `--no-template` / `--no-install-deps`.
+    - `pm.ts` 통째 삭제 (121 LOC) — `ensurePeerDeps` 가 유일 사용자였음.
+    - `migrate.ts` 통째 삭제 + `index.ts` switch 분기 제거. SQLite ↔ Supabase 이전 명령은 admin 라우트 사라지면 의미 0.
+    - `nextjs-e2e-test.sh` 통째 삭제 — admin 라우트 전용 e2e.
+    - `sandbox-test.sh` Step 4.9 (stub Next.js + installTemplate 검증) + Step 5 (migrate smoke test) 통째 제거.
+    - `index.ts` 한·영 HELP 양쪽에서 backend / install-template / install-deps / migrate 옵션 제거. `--tools=all --models=balanced` 예시 추가.
+    - `status.ts` "Chat-room UI (optional)" → "Chat room (.harness/chat.db)" 로 변경 (standalone DB 존재 여부 체크).
+    - `update.ts` `AssetPaths.projectTemplate` 필드 제거, `ADMIN_HARNESS_ROUTE` context 제거.
+    - shared 템플릿 5곳 정리 — `CLAUDE.md.harness-section.template` (ko/en), `AGENT_LEARNING_LOG.seed.md` (ko/en), `director.md` (ko/en) 의 `{{ADMIN_HARNESS_ROUTE}}` placeholder 를 `bujang chat` 안내로 대체.
+    - plugin commands 5개 정리 — `bujang-init.md` (도구/모델 prompt 안내), `bujang-status.md` (.harness/chat.db 안내), `bujang-team.md` ("/admin/harness" → 톡방), `bujang-report.md` (SQLite 단일 분기), `open-chat.md` ("/admin/harness" 대체 surface 안내 제거).
+    - 루트 README + plugin README + cli README admin/harness · packages/template · Supabase backend 언급 일괄 정리.
+    - package.json description 갱신 ("16 specialist teams, standalone localhost chat-room viewer, zero project intrusion").
+    - 효과: 사용자 빌드 안 깨짐, surface 단순화 (1개), 신규 사용자 onboarding 더 부드러움.
   - 0.4.0 → 0.5.10 까지 11개 패치 한 번에 publish (Touch ID 1번)
   - 0.6.0 — multi-tool init + per-agent 모델 매핑
   - 0.6.1 — 톡방 read-state SQLite 화 (포트 변경에도 unread 카운트 유지)
@@ -211,7 +229,7 @@ cd /Users/cho/Desktop/4141/harness-bujang/packages/cli
 ## 알려진 한계
 
 - **plugin.json 공식 spec 미검증** — Claude Code Plugin 공식 문서 spec과 정확히 맞는지 확인 필요. 기본 메타데이터는 올바르게 설정됨
-- **better-sqlite3 native 의존성 (Next.js 톡방 UI 한정)** — `packages/template/` 의 Next.js 라우트에서 톡방을 띄울 때만 사용자 프로젝트에 `npm i better-sqlite3` 필요. `bujang chat` 은 0.5.7 부터 CLI 자체가 better-sqlite3 를 의존성으로 박고 있어 별도 설치 불필요 (윈도우 포함 zero-install)
+- **better-sqlite3 native 의존성 (CLI 내부)** — `bujang chat` 만 better-sqlite3 사용. CLI 자체가 의존성으로 박혀 있어 사용자 프로젝트는 별도 설치 불필요 (윈도우 포함 zero-install). 0.9.0 이후 사용자 프로젝트에는 native dep 자동설치 안 함.
 
 ## 빠른 검증 (다음 세션 시작할 때)
 

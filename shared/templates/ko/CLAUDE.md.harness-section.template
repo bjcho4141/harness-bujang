@@ -16,7 +16,7 @@
   - Engineering 9: `dev-team` · `architect-team` · `code-review-team` · `security-team` · `db-guard-team` · `qa-team` · `verifier-team` · `doc-sync-team` · `consultant`
   - Content 7: `research-team` · `analysis-team` · `script-team` · `image-team` · `voice-team` · `edit-team` · `content-qa-team`
 - **공동대표 persona**: `.claude/agents/cofounder.md` — peer to 대표님. Brainstorming / strategy / decision push.
-- **Chat room**: `{{ADMIN_HARNESS_ROUTE}}` or `bujang chat` (standalone) — super-admin only.
+- **Chat room**: `bujang chat` (localhost viewer) or `/open-chat` slash command. Super-admin only.
 - **Learning log**: `{{LEARNING_LOG_PATH}}` — read at session start.
 
 ### Flow

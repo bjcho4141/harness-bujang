@@ -2,12 +2,12 @@
 
 [![npm](https://img.shields.io/npm/v/harness-bujang.svg)](https://www.npmjs.com/package/harness-bujang)
 
-Install the [Harness-Bujang](https://github.com/bjcho4141/harness-bujang) multi-agent harness into any project — Director, 7 specialist teams, Consultant, plus an optional real-time chat-room UI.
+Install the [Harness-Bujang](https://github.com/bjcho4141/harness-bujang) multi-agent harness into any project — Director, 16 specialist teams, Cofounder, plus a standalone localhost chat-room viewer (`bujang chat`).
 
 ## Quick start
 
 ```bash
-# Interactive setup — prompts for language, backend, etc.
+# Interactive setup — prompts for language, tools, model preset
 npx harness-bujang init
 
 # Non-interactive (CI / scripts) — accept all defaults (Korean agents)
@@ -16,8 +16,8 @@ npx harness-bujang init --yes
 # English agents (default is Korean from 0.4.2+)
 npx harness-bujang init --lang=en
 
-# Different folder, skip the chat-room UI
-npx harness-bujang init --target=./my-app --no-template
+# All extra-tool adapters + balanced model preset
+npx harness-bujang init --yes --tools=all --models=balanced
 
 # Upgrade an existing install — adds NEW team files only, never touches existing ones
 npx harness-bujang update
@@ -36,7 +36,7 @@ npx harness-bujang update
 > you've added to existing agent files. `CLAUDE.md` and
 > `docs/AGENT_LEARNING_LOG.md` are never touched by any of the three commands.
 
-### 💬 Open the chat-room — two ways (natural language recommended)
+### 💬 Open the chat-room (natural language recommended)
 
 After install, just **say it in plain language** inside Claude Code — the Director will spawn the viewer in the background:
 
@@ -59,7 +59,7 @@ Manual command (works on any stack — Next.js, Rails, Django, Express, …):
 npx harness-bujang chat
 ```
 
-→ Reads `.harness/chat.db` directly. From 0.5.3, the DB is auto-created on first run if missing.
+→ Reads `.harness/chat.db` directly. The DB is auto-created on first run if missing.
 
 ### 🎬 How to use it — call by name
 
@@ -102,10 +102,12 @@ Natural-language triggers:
 ## What it does
 
 1. **Scans** the project — framework (Next.js / SvelteKit / Astro / Rails / Django / …), language, DB (Supabase / Prisma / Drizzle / TypeORM), UI lib, payment integration, GitHub user.
-2. **Installs agents** at `.claude/agents/` — 10 markdown files defining `director`, `consultant`, `dev-team`, `architect-team`, `code-review-team`, `security-team`, `db-guard-team`, `qa-team`, `verifier-team`, `doc-sync-team`. Placeholders are filled based on the scan.
+2. **Installs agents** at `.claude/agents/` — 18 markdown files (Director, Cofounder, 9 engineering teams, 7 content teams). Placeholders are filled based on the scan.
 3. **Updates `CLAUDE.md`** — appends the harness-engineering section (or creates `CLAUDE.md` if absent).
 4. **Seeds the learning log** — `docs/AGENT_LEARNING_LOG.md` with the canonical format and the first entry.
-5. **(Optional) Installs the chat-room UI** — Next.js admin page + API routes + Postgres migrations. Skipped automatically if your stack isn't Next.js.
+5. **(Optional) Fans out to extra tools** — Cursor / Cline / Aider / Codex / Gemini adapters when selected.
+
+Zero project intrusion: no `next.config` patching, no auto-install of native peer deps, no `.env.local` edits. The chat room runs standalone via `bujang chat` on localhost.
 
 ## Commands
 
@@ -116,16 +118,17 @@ npx harness-bujang init [options]
 
 Options:
   --lang=<ko|en>          Agent language                    (default: ko — full 부장 persona)
+  --tools=<list>          Extra adapters: cursor,cline,aider,codex,gemini,all
+  --models=<preset>       Claude model preset: balanced (recommended), keep, cost, quality
   --target=<path>         Project root                      (default: .)
   --framework=<name>      Override detected framework
   --db=<name>             Override detected DB
-  --no-template           Skip chat-room UI install
   --no-claude-md          Skip CLAUDE.md edit
   --no-learning-log       Skip learning log seed
   --yes, -y               Skip prompts and overwrite (non-interactive — for CI / scripts)
 ```
 
-When `--yes` is omitted and stdin is a TTY, the CLI prompts for language, chat backend, and (for Next.js projects) whether to install the chat-room UI.
+When `--yes` is omitted and stdin is a TTY, the CLI prompts for language, extra-tool adapters, and per-tool model preset.
 
 ### `status`
 
@@ -133,7 +136,7 @@ When `--yes` is omitted and stdin is a TTY, the CLI prompts for language, chat b
 npx harness-bujang status [path]
 ```
 
-Verifies the install: agent files, `CLAUDE.md` section, learning log, chat-room UI. Counts unfilled `{{...}}` placeholders.
+Verifies the install: agent files, `CLAUDE.md` section, learning log, `.harness/chat.db`. Counts unfilled `{{...}}` placeholders.
 
 ### `update`
 
@@ -191,13 +194,12 @@ Options:
 ```
 
 Boots a standalone HTTP server (Node `http`, no framework) that reads
-`<target>/.harness/chat.db` via the system `sqlite3` CLI and serves the
-KakaoTalk-style chat-room viewer. Supports both reading and writing — the
-input bar at the bottom of each room sends `from='대표님'` (principal) messages
-that any agent can pick up next time they read the chat.
+`<target>/.harness/chat.db` via the embedded `better-sqlite3` native module
+(prebuilt — no system `sqlite3` needed) and serves the KakaoTalk-style
+chat-room viewer. From 0.5.3, the DB is auto-created on first run if missing.
 
-Requires the `sqlite3` command-line tool (preinstalled on macOS; `apt-get install
-sqlite3` on Ubuntu/WSL; sqlite-tools binaries on Windows).
+Works on any stack — Next.js, Rails, Django, Express, Rust, … — because the
+viewer is fully self-contained at `http://localhost:7777`.
 
 ### `adapt`
 
@@ -254,7 +256,7 @@ Main Claude (acting as Director)
     └─ Reply with consolidated report
 ```
 
-Every step writes to `harness_messages`, visible in the optional admin chat-room UI at `/admin/harness`.
+Every step writes to `harness_messages`, visible in the standalone chat-room viewer (`bujang chat` or `/open-chat`).
 
 ## Korean vs English
 

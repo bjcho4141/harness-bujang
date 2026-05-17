@@ -170,7 +170,7 @@ AI를 *도구*로 부리는 게 아니라, **동료·상사·팀원**으로 대�
         ↓
     각 단계마다 harness_messages 톡방에 INSERT
         ↓
-    /admin/harness 에서 실시간 관전
+    bujang chat (localhost) 에서 실시간 관전
         ↓
 대표님께 통합 보고
 ```
@@ -248,11 +248,10 @@ graph TD
     CQ[콘텐츠검수팀<br/>content-qa-team]
   end
 
-  CHAT[(harness_messages<br/>SQLite or Supabase)]
+  CHAT[(harness_messages<br/>SQLite .harness/chat.db)]
 
-  UI1[/admin/harness<br/>Next.js admin route]
-  UI2[bujang chat<br/>standalone viewer<br/>localhost:7777]
-  UI3[Adapters<br/>cursor · cline · aider ·<br/>codex · gemini]
+  UI1[bujang chat<br/>localhost:7777<br/>standalone viewer]
+  UI2[Adapters<br/>cursor · cline · aider ·<br/>codex · gemini]
 
   P -->|명령| D
   D --> ENG
@@ -264,9 +263,8 @@ graph TD
   D -.기록.-> CHAT
 
   CHAT --> UI1
-  CHAT --> UI2
 
-  UI3 -.파생.- D
+  UI2 -.파생.- D
 
   style P fill:#f3e8ff,stroke:#7c3aed,stroke-width:2px
   style D fill:#dbeafe,stroke:#2563eb,stroke-width:2px
@@ -339,7 +337,6 @@ Next.js 의존도 없고, 별도 셋업도 없습니다. SQLite 파일 (`<projec
 git clone https://github.com/bjcho4141/harness-bujang.git
 cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 # CLAUDE.md 에 shared/templates/ko/CLAUDE.md.harness-section.template 내용 추가
-# (선택) packages/template/migrations + app 복사
 ```
 
 → 100% 자기 입맛으로 수정 가능. placeholder는 직접 채우거나 그대로 두면 됩니다.
@@ -350,9 +347,8 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 
 | 패키지 | 역할 | npm | 설치 |
 |---|---|---|---|
-| [`packages/plugin`](./packages/plugin) | Claude Code Plugin (10 agents + 5 slash commands) | — | `/plugin install bjcho4141/harness-bujang` |
+| [`packages/plugin`](./packages/plugin) | Claude Code Plugin (18 agents + 5 slash commands) | — | `/plugin install bjcho4141/harness-bujang` |
 | [`packages/cli`](./packages/cli) | `harness-bujang init` 인스톨러 | `harness-bujang` | `npx harness-bujang init` |
-| [`packages/template`](./packages/template) | Next.js + Postgres 톡방 UI 자산 | — | CLI가 자동 복사 |
 
 공유 자산(SSoT):
 - [`shared/agents/ko/`](./shared/agents/ko) · [`shared/agents/en/`](./shared/agents/en) — 에이전트 정의 **18개** × 2 언어 (director + cofounder + 코드 9팀 + 콘텐츠 7팀)
@@ -366,18 +362,18 @@ cp -r harness-bujang/shared/agents/ko/* ./your-project/.claude/agents/
 
 ### 프레임워크 자동 감지
 
-| 스택 | 감지 | Next.js 톡방 UI | `bujang chat` standalone |
-|---|---|---|---|
-| Next.js (App Router) | ✅ | ✅ 즉시 사용 | ✅ |
-| SvelteKit | ✅ | ⚠️ 수동 포팅 필요 | ✅ |
-| Astro / Nuxt | ✅ | ⚠️ 수동 포팅 | ✅ |
-| Rails | ✅ | ❌ | ✅ |
-| Django / FastAPI | ✅ | ❌ | ✅ |
-| Python (general) | ✅ | ❌ | ✅ |
-| Rust / Go | ✅ | ❌ | ✅ |
-| Generic Node.js | ✅ | ❌ | ✅ |
+| 스택 | 감지 | `bujang chat` standalone |
+|---|---|---|
+| Next.js (App Router) | ✅ | ✅ |
+| SvelteKit | ✅ | ✅ |
+| Astro / Nuxt | ✅ | ✅ |
+| Rails | ✅ | ✅ |
+| Django / FastAPI | ✅ | ✅ |
+| Python (general) | ✅ | ✅ |
+| Rust / Go | ✅ | ✅ |
+| Generic Node.js | ✅ | ✅ |
 
-`bujang chat` 은 어떤 스택에서든 SQLite 파일을 직접 읽어서 카톡 UI를 띄우므로, Next.js 톡방 UI가 안 깔리는 환경에서도 동일한 톡방 경험 제공.
+`bujang chat` 은 모든 스택에서 동일하게 동작 — SQLite 파일을 직접 읽어 localhost 카톡 UI 로 띄움. 사용자 프로젝트는 1도 안 건드림 (0.9.0 이후 admin 라우트 자동 설치 제거).
 
 ### DB 자동 감지
 
@@ -520,9 +516,9 @@ A. Claude Agent SDK는 **빌딩 블록**(SDK 레벨)이고, 하네스 부장은 
 </details>
 
 <details>
-<summary><b>Q. 톡방 UI 없이도 쓸 수 있나요?</b></summary>
+<summary><b>Q. 톡방 viewer 안 띄워도 쓸 수 있나요?</b></summary>
 
-A. 네. `--no-template` 옵션으로 에이전트 정의만 설치하면 됩니다. 톡방 UI는 가시성 보너스이고, 핵심 가치는 위계 + 5단계 검증입니다.
+A. 네. 에이전트 정의 + INSERT 만으로도 동작합니다. 톡방 viewer (`bujang chat`) 는 가시성 보너스 — `.harness/chat.db` SQLite 에 모든 기록이 쌓이고, viewer 는 필요할 때만 띄우면 됩니다. 핵심 가치는 위계 + 5단계 검증입니다.
 
 </details>
 

@@ -42,28 +42,23 @@ ${c.bold('사용법:')}
   npx harness-bujang ${c.cyan('init')}     [옵션]    프로젝트에 하네스 설치
   npx harness-bujang ${c.cyan('update')}   [옵션]    신규 에이전트만 추가 — 기존 파일 안 건드림
   npx harness-bujang ${c.cyan('status')}   [옵션]    하네스 설치 상태 확인
-  npx harness-bujang ${c.cyan('chat')}     [옵션]    톡방 viewer 실행 (어떤 스택이든)
+  npx harness-bujang ${c.cyan('chat')}     [옵션]    톡방 viewer 실행 (localhost, 어떤 스택이든)
   npx harness-bujang ${c.cyan('adapt')}    --to=<cursor|cline|aider|codex|gemini|all>  다른 도구용으로 변환
-  npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  톡방 데이터 이전
 
 ${c.bold('init 옵션:')}
   --lang=<ko|en>           에이전트 언어 (기본값: ko — 전체 부장 페르소나)
-  --chat=<sqlite|supabase> 톡방 백엔드 (기본값: sqlite — 로컬 파일, 셋업 불필요)
-  --commit-chat            .harness/ 를 gitignore 안 함 (혼자 여러 PC 에서 git 동기화 시)
   --tools=<list>           추가 어댑터: cursor,cline,aider,codex,gemini,all
                            (Claude Code 는 항상 .claude/agents/ 에 자동 설치됨)
   --models=<preset>        에이전트별 Claude 모델 프리셋: balanced (추천),
                            keep (기본), cost (전부 haiku), quality (전부 opus)
   --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
   --framework=<name>       감지된 프레임워크 덮어쓰기
-  --db=<name>              감지된 프로젝트 DB 덮어쓰기 (--chat 와 별개)
-  --no-template            톡방 UI 설치 건너뛰기
+  --db=<name>              감지된 프로젝트 DB 덮어쓰기
   --no-claude-md           CLAUDE.md 수정 건너뛰기
   --no-learning-log        학습 로그 시드 건너뛰기
-  --no-install-deps        peer dep 자동 설치 건너뛰기 (better-sqlite3 / @supabase/supabase-js)
   --yes, -y                프롬프트 건너뛰고 덮어쓰기 (CI / 스크립트용)
 
-${c.dim('--yes 안 붙이면 인터랙티브 셋업 (언어 / 백엔드 / 도구 / 모델 프리셋 prompt).')}
+${c.dim('--yes 안 붙이면 인터랙티브 셋업 (언어 / 도구 / 모델 프리셋 prompt).')}
 
 ${c.bold('chat 옵션:')}
   --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
@@ -90,30 +85,16 @@ ${c.dim('  aider   → CONVENTIONS.md + .aider.conf.yml    (Aider)')}
 ${c.dim('  codex   → AGENTS.md                           (Codex CLI / Copilot Coding Agent / Cody)')}
 ${c.dim('  gemini  → GEMINI.md + .gemini/styleguide.md   (Antigravity / Gemini CLI / Code Assist)')}
 
-${c.bold('migrate 옵션:')}
-  --to=<sqlite|supabase>   필수 — 이전할 백엔드
-  --target=<path>          프로젝트 루트 (기본값: 현재 디렉토리)
-  --yes, -y                확인 프롬프트 건너뛰기
-
 ${c.bold('예시:')}
-  ${c.dim('# 한국어 부장 페르소나 + SQLite 톡방 (기본값 — 셋업 불필요)')}
+  ${c.dim('# 한국어 부장 페르소나 설치 (기본값 — 셋업 불필요)')}
   npx harness-bujang init --lang=ko
 
-  ${c.dim('# Standalone 톡방 viewer — 어떤 스택에서도 동작 (Next.js, Rails, Django, …)')}
+  ${c.dim('# 톡방 viewer — 어떤 스택에서도 동작 (Next.js, Rails, Django, …)')}
   npx harness-bujang chat
   ${c.dim('# → http://localhost:7777 자동 오픈')}
 
-  ${c.dim('# 혼자 여러 PC 에서 — git 으로 톡방 히스토리 동기화')}
-  npx harness-bujang init --commit-chat
-
-  ${c.dim('# 팀 운영 — Supabase 백엔드')}
-  npx harness-bujang init --chat=supabase
-
-  ${c.dim('# 솔로로 시작했다가 팀 단위로 확장 — 클라우드로 승격')}
-  bujang migrate --to=supabase
-
-  ${c.dim('# 다시 솔로 / 아카이빙 — 클라우드 데이터를 로컬 SQLite 로')}
-  bujang migrate --to=sqlite
+  ${c.dim('# 비대화형 — 모든 도구 + balanced 모델 프리셋')}
+  npx harness-bujang init --yes --tools=all --models=balanced
 
 ${c.dim('English help: ')}${c.bold('npx harness-bujang --help-en')}
 `;
@@ -126,28 +107,23 @@ ${c.bold('Usage:')}
   npx harness-bujang ${c.cyan('init')}     [options]    Install the harness into a project
   npx harness-bujang ${c.cyan('update')}   [options]    Pull NEW agents only — existing files untouched
   npx harness-bujang ${c.cyan('status')}   [options]    Verify the harness install
-  npx harness-bujang ${c.cyan('chat')}     [options]    Open the standalone chat-room viewer (any stack)
+  npx harness-bujang ${c.cyan('chat')}     [options]    Open the chat-room viewer (localhost, any stack)
   npx harness-bujang ${c.cyan('adapt')}    --to=<cursor|cline|aider|codex|gemini|all>  Convert .claude/agents/ for other tools
-  npx harness-bujang ${c.cyan('migrate')}  --to=<sqlite|supabase>  Move chat data between backends
 
 ${c.bold('Options for init:')}
   --lang=<ko|en>           Agent language (default: ko — full 부장 persona)
-  --chat=<sqlite|supabase> Chat-room backend (default: sqlite — local file, no setup)
-  --commit-chat            Don't gitignore .harness/ (for solo cross-machine sync via git)
   --tools=<list>           Extra tool adapters: cursor,cline,aider,codex,gemini,all
                            (Claude Code is always installed at .claude/agents/)
   --models=<preset>        Per-agent Claude model preset: balanced (recommended),
                            keep (default), cost (all haiku), quality (all opus)
   --target=<path>          Project root (default: cwd)
   --framework=<name>       Override detected framework
-  --db=<name>              Override detected project DB (separate from --chat)
-  --no-template            Skip chat-room UI install
+  --db=<name>              Override detected project DB
   --no-claude-md           Skip CLAUDE.md edit
   --no-learning-log        Skip learning log seed
-  --no-install-deps        Skip auto-install of peer deps (better-sqlite3 / @supabase/supabase-js)
   --yes, -y                Skip prompts and overwrite (non-interactive — for CI / scripts)
 
-${c.dim('Run without --yes for an interactive setup (prompts for language, backend, etc.).')}
+${c.dim('Run without --yes for an interactive setup (prompts for language, tools, models).')}
 
 ${c.bold('Options for chat:')}
   --target=<path>          Project root (default: cwd)
@@ -174,30 +150,16 @@ ${c.dim('  aider   → CONVENTIONS.md + .aider.conf.yml    (Aider)')}
 ${c.dim('  codex   → AGENTS.md                           (Codex CLI / Copilot Coding Agent / Cody)')}
 ${c.dim('  gemini  → GEMINI.md + .gemini/styleguide.md   (Antigravity / Gemini CLI / Code Assist)')}
 
-${c.bold('Options for migrate:')}
-  --to=<sqlite|supabase>   Required — target backend
-  --target=<path>          Project root (default: cwd)
-  --yes, -y                Skip confirmation
-
 ${c.bold('Examples:')}
-  ${c.dim('# Install Korean Bujang persona, SQLite chat (default — zero setup)')}
+  ${c.dim('# Install Korean Bujang persona (default — zero setup)')}
   npx harness-bujang init --lang=ko
 
-  ${c.dim('# Open the standalone chat-room — works on ANY stack (Next.js, Rails, Django, …)')}
+  ${c.dim('# Open the chat-room viewer — works on ANY stack (Next.js, Rails, Django, …)')}
   npx harness-bujang chat
   ${c.dim('# → opens http://localhost:7777 in your browser')}
 
-  ${c.dim('# Solo, multiple machines — sync chat history via git')}
-  npx harness-bujang init --commit-chat
-
-  ${c.dim('# Production project with team sharing — Supabase backend')}
-  npx harness-bujang init --chat=supabase
-
-  ${c.dim('# Started solo, now scaling up — promote to cloud')}
-  bujang migrate --to=supabase
-
-  ${c.dim('# Going back to solo / archive — pull cloud data into local SQLite')}
-  bujang migrate --to=sqlite
+  ${c.dim('# Non-interactive — all adapters + balanced model preset')}
+  npx harness-bujang init --yes --tools=all --models=balanced
 `;
 
 async function main() {
@@ -219,9 +181,6 @@ async function main() {
       break;
     case 'update':
       await (await import('./update.js')).runUpdate(args.slice(1));
-      break;
-    case 'migrate':
-      await (await import('./migrate.js')).runMigrate(args.slice(1));
       break;
     case '--version':
     case '-v':
